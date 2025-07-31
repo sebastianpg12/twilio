@@ -1,0 +1,148 @@
+# WhatsApp Business API - Colección Postman
+# URL Base: https://twilio-9ubt.onrender.com
+
+# ========== 1. HEALTH CHECK ==========
+# Verificar que el servidor está funcionando
+curl -X GET "https://twilio-9ubt.onrender.com/api/health" \
+  -H "Accept: application/json"
+
+# ========== 2. ESTADO DEL BOT AUTOMÁTICO ==========
+# Ver si las respuestas automáticas están activadas
+curl -X GET "https://twilio-9ubt.onrender.com/api/auto-response/status" \
+  -H "Accept: application/json"
+
+# ========== 3. ACTIVAR BOT AUTOMÁTICO ==========
+# Activar respuestas automáticas con IA
+curl -X POST "https://twilio-9ubt.onrender.com/api/auto-response/toggle" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+
+# ========== 4. DESACTIVAR BOT AUTOMÁTICO ==========
+# Desactivar respuestas automáticas
+curl -X POST "https://twilio-9ubt.onrender.com/api/auto-response/toggle" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+
+# ========== 5. TOGGLE BOT AUTOMÁTICO ==========
+# Cambiar estado del bot (activar/desactivar)
+curl -X POST "https://twilio-9ubt.onrender.com/api/auto-response/toggle" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# ========== 6. LISTAR TODAS LAS CONVERSACIONES ==========
+# Obtener todas las conversaciones ordenadas por fecha
+curl -X GET "https://twilio-9ubt.onrender.com/api/conversations" \
+  -H "Accept: application/json"
+
+# ========== 7. LISTAR CONVERSACIONES CON LÍMITE ==========
+# Obtener conversaciones con paginación
+curl -X GET "https://twilio-9ubt.onrender.com/api/conversations?limit=10&offset=0" \
+  -H "Accept: application/json"
+
+# ========== 8. VER HISTORIAL DE CONVERSACIÓN ==========
+# Obtener todos los mensajes de una conversación específica
+curl -X GET "https://twilio-9ubt.onrender.com/api/conversations/whatsapp:+1234567890" \
+  -H "Accept: application/json"
+
+# ========== 9. VER HISTORIAL SIN PREFIJO WHATSAPP ==========
+# El sistema automáticamente añade el prefijo whatsapp:
+curl -X GET "https://twilio-9ubt.onrender.com/api/conversations/+1234567890" \
+  -H "Accept: application/json"
+
+# ========== 10. MARCAR CONVERSACIÓN COMO LEÍDA ==========
+# Marcar una conversación como leída (resetea contador)
+curl -X POST "https://twilio-9ubt.onrender.com/api/conversations/+1234567890/read" \
+  -H "Content-Type: application/json"
+
+# ========== 11. BUSCAR CONVERSACIONES ==========
+# Buscar conversaciones por texto en los mensajes
+curl -X GET "https://twilio-9ubt.onrender.com/api/conversations/search/hola" \
+  -H "Accept: application/json"
+
+# ========== 12. OBTENER ESTADÍSTICAS ==========
+# Ver estadísticas de conversaciones y mensajes
+curl -X GET "https://twilio-9ubt.onrender.com/api/stats" \
+  -H "Accept: application/json"
+
+# ========== 13. ENVIAR MENSAJE MANUAL ==========
+# Enviar un mensaje manual a un número específico
+curl -X POST "https://twilio-9ubt.onrender.com/api/send-message" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+1234567890",
+    "message": "Hola, este es un mensaje manual enviado desde la API"
+  }'
+
+# ========== 14. ENVIAR MENSAJE CON PREFIJO WHATSAPP ==========
+# También puedes incluir el prefijo whatsapp: manualmente
+curl -X POST "https://twilio-9ubt.onrender.com/api/send-message" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "whatsapp:+1234567890",
+    "message": "Mensaje con prefijo whatsapp incluido"
+  }'
+
+# ========== 15. ENVIAR MENSAJE CON ASISTENCIA DE IA ==========
+# La IA genera el mensaje basado en tu prompt
+curl -X POST "https://twilio-9ubt.onrender.com/api/send-ai-message" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+1234567890",
+    "prompt": "Responde de forma profesional que necesitamos agendar una cita médica",
+    "context": "El cliente está preguntando por disponibilidad"
+  }'
+
+# ========== 16. MENSAJE IA PARA CONFIRMACIÓN ==========
+# Ejemplo específico para confirmar citas
+curl -X POST "https://twilio-9ubt.onrender.com/api/send-ai-message" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+1234567890",
+    "prompt": "Confirma una cita médica para mañana a las 3 PM de forma profesional",
+    "context": "Consultorio médico"
+  }'
+
+# ========== 17. MENSAJE IA PARA INFORMACIÓN ==========
+# Respuesta informativa sobre servicios
+curl -X POST "https://twilio-9ubt.onrender.com/api/send-ai-message" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "+1234567890",
+    "prompt": "Explica nuestros servicios de consulta médica general",
+    "context": "Clínica médica familiar"
+  }'
+
+# ========== 18. CONSULTAR IA DIRECTAMENTE ==========
+# Hacer una pregunta directa a la IA sin enviar mensaje
+curl -X POST "https://twilio-9ubt.onrender.com/api/ask-ai" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "¿Cuáles son los horarios típicos de una clínica médica?",
+    "context": "Necesito información para responder a un paciente"
+  }'
+
+# ========== 19. CONSULTA IA SIMPLE ==========
+# Pregunta simple sin contexto
+curl -X POST "https://twilio-9ubt.onrender.com/api/ask-ai" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "¿Qué es la telemedicina?"
+  }'
+
+# ========== 20. SIMULAR WEBHOOK DE TWILIO ==========
+# Simular un mensaje entrante de WhatsApp (para testing)
+curl -X POST "https://twilio-9ubt.onrender.com/webhook" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'From=whatsapp:+1234567890&Body=Hola, necesito agendar una cita&MediaUrl0='
+
+# ========== 21. SIMULAR MENSAJE CON MEDIA ==========
+# Simular mensaje con archivo multimedia
+curl -X POST "https://twilio-9ubt.onrender.com/webhook" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'From=whatsapp:+1234567890&Body=Aquí tienes mi documento&MediaUrl0=https://example.com/imagen.jpg'
+
+# ========== 22. SIMULAR MENSAJE VACÍO ==========
+# Simular mensaje solo con media, sin texto
+curl -X POST "https://twilio-9ubt.onrender.com/webhook" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d 'From=whatsapp:+1234567890&Body=&MediaUrl0=https://example.com/audio.mp3'

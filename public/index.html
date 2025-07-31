@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Business Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar con conversaciones -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="header-content">
+                    <h2><i class="fab fa-whatsapp"></i> WhatsApp Business</h2>
+                    <div class="header-actions">
+                        <button id="refreshBtn" class="btn-icon" title="Actualizar">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button id="settingsBtn" class="btn-icon" title="Configuración">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Búsqueda -->
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Buscar conversaciones..." />
+                    <i class="fas fa-search"></i>
+                </div>
+                
+                <!-- Estado del bot -->
+                <div class="bot-status">
+                    <div class="status-indicator">
+                        <span id="botStatus" class="status-dot active"></span>
+                        <span id="botStatusText">Bot Automático: Activo</span>
+                    </div>
+                    <button id="toggleBot" class="btn-toggle">
+                        <i class="fas fa-robot"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Lista de conversaciones -->
+            <div class="conversations-list" id="conversationsList">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Cargando conversaciones...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat principal -->
+        <div class="chat-container">
+            <div class="chat-header" id="chatHeader">
+                <div class="welcome-message">
+                    <i class="fab fa-whatsapp"></i>
+                    <h3>Selecciona una conversación para empezar</h3>
+                    <p>Gestiona todas tus conversaciones de WhatsApp desde aquí</p>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <!-- Los mensajes se cargarán aquí -->
+            </div>
+            
+            <div class="chat-input" id="chatInput" style="display: none;">
+                <div class="input-container">
+                    <textarea id="messageInput" placeholder="Escribe un mensaje..." rows="1"></textarea>
+                    <div class="input-actions">
+                        <button id="aiAssistBtn" class="btn-icon" title="Asistencia IA">
+                            <i class="fas fa-brain"></i>
+                        </button>
+                        <button id="sendBtn" class="btn-send">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para asistencia IA -->
+    <div id="aiModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-brain"></i> Asistencia de IA</h3>
+                <button class="close" id="closeAiModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label for="aiPrompt">Dile a la IA qué tipo de mensaje quieres enviar:</label>
+                <textarea id="aiPrompt" placeholder="Ej: Responde de forma profesional que necesitamos más información sobre su consulta..."></textarea>
+                <div class="modal-actions">
+                    <button id="generateAiMessage" class="btn-primary">
+                        <i class="fas fa-magic"></i> Generar Mensaje
+                    </button>
+                    <button id="cancelAi" class="btn-secondary">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de configuración -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> Configuración</h3>
+                <button class="close" id="closeSettingsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="autoResponseToggle"> 
+                        Respuestas automáticas con IA
+                    </label>
+                    <p class="setting-description">Cuando está activado, la IA responderá automáticamente a los mensajes entrantes.</p>
+                </div>
+                
+                <div class="stats-container">
+                    <h4>Estadísticas</h4>
+                    <div class="stats-grid" id="statsGrid">
+                        <!-- Las estadísticas se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

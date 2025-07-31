@@ -1,0 +1,399 @@
+{
+  "info": {
+    "name": "WhatsApp Business API",
+    "description": "API completa para WhatsApp Business con IA y MongoDB",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://twilio-9ubt.onrender.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            }
+          }
+        },
+        {
+          "name": "Bot Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auto-response/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auto-response", "status"]
+            }
+          }
+        },
+        {
+          "name": "Activar Bot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auto-response/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auto-response", "toggle"]
+            }
+          }
+        },
+        {
+          "name": "Desactivar Bot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auto-response/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auto-response", "toggle"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conversaciones",
+      "item": [
+        {
+          "name": "Listar Conversaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations"]
+            }
+          }
+        },
+        {
+          "name": "Conversaciones con Paginación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations?limit=10&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ver Historial",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/+1234567890",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "+1234567890"]
+            }
+          }
+        },
+        {
+          "name": "Marcar como Leída",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/+1234567890/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "+1234567890", "read"]
+            }
+          }
+        },
+        {
+          "name": "Buscar Conversaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/search/hola",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "search", "hola"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Estadísticas",
+      "item": [
+        {
+          "name": "Obtener Estadísticas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Envío de Mensajes",
+      "item": [
+        {
+          "name": "Mensaje Manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"+1234567890\",\n  \"message\": \"Hola, este es un mensaje manual desde la API\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-message",
+              "host": ["{{base_url}}"],
+              "path": ["api", "send-message"]
+            }
+          }
+        },
+        {
+          "name": "Mensaje con IA - Cita Médica",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"+1234567890\",\n  \"prompt\": \"Responde de forma profesional que necesitamos agendar una cita médica\",\n  \"context\": \"El cliente está preguntando por disponibilidad\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-ai-message",
+              "host": ["{{base_url}}"],
+              "path": ["api", "send-ai-message"]
+            }
+          }
+        },
+        {
+          "name": "Mensaje con IA - Confirmar Cita",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"+1234567890\",\n  \"prompt\": \"Confirma una cita médica para mañana a las 3 PM de forma profesional\",\n  \"context\": \"Consultorio médico\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-ai-message",
+              "host": ["{{base_url}}"],
+              "path": ["api", "send-ai-message"]
+            }
+          }
+        },
+        {
+          "name": "Mensaje con IA - Información",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"+1234567890\",\n  \"prompt\": \"Explica nuestros servicios de consulta médica general\",\n  \"context\": \"Clínica médica familiar\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-ai-message",
+              "host": ["{{base_url}}"],
+              "path": ["api", "send-ai-message"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "IA Directa",
+      "item": [
+        {
+          "name": "Consultar IA con Contexto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"¿Cuáles son los horarios típicos de una clínica médica?\",\n  \"context\": \"Necesito información para responder a un paciente\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ask-ai",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ask-ai"]
+            }
+          }
+        },
+        {
+          "name": "Consultar IA Simple",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"¿Qué es la telemedicina?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ask-ai",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ask-ai"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhook Testing",
+      "item": [
+        {
+          "name": "Simular Mensaje WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "From",
+                  "value": "whatsapp:+1234567890",
+                  "type": "text"
+                },
+                {
+                  "key": "Body",
+                  "value": "Hola, necesito agendar una cita",
+                  "type": "text"
+                },
+                {
+                  "key": "MediaUrl0",
+                  "value": "",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["webhook"]
+            }
+          }
+        },
+        {
+          "name": "Simular Mensaje con Media",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "From",
+                  "value": "whatsapp:+1234567890",
+                  "type": "text"
+                },
+                {
+                  "key": "Body",
+                  "value": "Aquí tienes mi documento",
+                  "type": "text"
+                },
+                {
+                  "key": "MediaUrl0",
+                  "value": "https://example.com/imagen.jpg",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["webhook"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
