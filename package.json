@@ -1,11 +1,11 @@
 {
-  "name": "twilio-ai-bot",
+  "name": "whatsapp-business-backend",
   "version": "1.0.0",
-  "description": "Bot de WhatsApp con IA usando Twilio y OpenAI",
-  "main": "app.js",
+  "description": "Backend para WhatsApp Business con IA y MongoDB",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node app.js",
+    "start": "node server.js",
+    "dev": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
@@ -16,9 +16,10 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "openai": "^5.11.0",
-    "twilio": "^5.8.0"
+    "twilio": "^5.8.0",
+    "mongodb": "^6.18.0"
   },
-  "keywords": ["twilio", "whatsapp", "ai", "openai", "bot"],
+  "keywords": ["whatsapp", "business", "twilio", "openai", "mongodb", "api"],
   "author": "",
   "license": "ISC"
 }
