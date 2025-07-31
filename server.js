@@ -1,5 +1,22 @@
 // app.js - Backend para WhatsApp Business con IA y MongoDB
+console.log('🔧 [SERVER.JS] Iniciando servidor...');
+console.log('📂 Directorio de trabajo:', process.cwd());
+console.log('🔑 Verificando variables de entorno...');
+
 require('dotenv').config();
+
+// Verificar variables de entorno críticas
+const requiredEnvVars = ['TWILIO_SID', 'TWILIO_AUTH_TOKEN', 'OPENAI_API_KEY', 'MONGODB_URI'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ Variables de entorno faltantes:', missingVars);
+  console.error('🔍 Variables disponibles:', Object.keys(process.env).filter(key => key.startsWith('TWILIO') || key.startsWith('OPENAI') || key.startsWith('MONGODB')));
+  process.exit(1);
+} else {
+  console.log('✅ Variables de entorno configuradas correctamente');
+}
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const twilio = require('twilio');
