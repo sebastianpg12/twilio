@@ -1,4 +1,5 @@
 // app.js
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const twilio = require('twilio');
@@ -6,10 +7,10 @@ const twilio = require('twilio');
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json()); // Para recibir JSON en POST
+const accountSid = process.env.TWILIO_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = require('twilio')(accountSid, authToken);
 
-const accountSid = 'process.env.TWILIO_SID';
-const authToken = '[AuthToken]'; // <-- Pega tu token real aquí
-const client = twilio(accountSid, authToken);
 
 // Ruta para recibir mensajes de Twilio
 app.post('/webhook', (req, res) => {
