@@ -27,17 +27,13 @@ app.post('/webhook', (req, res) => {
 
 // Ruta para enviar mensaje manual
 app.post('/send-message', async (req, res) => {
-  const { to, fecha, hora } = req.body;
+  const { to, body } = req.body;
 
   try {
     const message = await client.messages.create({
-      from: 'whatsapp:+14155238886', // Tu número de Twilio Sandbox o número verificado
-      contentSid: 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
-      contentVariables: JSON.stringify({
-        '1': fecha,
-        '2': hora
-      }),
-      to: `whatsapp:${to}`
+      from: 'whatsapp:+14155238886',
+      to: `whatsapp:${to}`,
+      body: body
     });
 
     console.log('Mensaje enviado. SID:', message.sid);
@@ -47,6 +43,7 @@ app.post('/send-message', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Servidor corriendo en puerto", PORT));
