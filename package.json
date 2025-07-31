@@ -2,9 +2,9 @@
   "name": "whatsapp-business-backend",
   "version": "1.0.0",
   "description": "Backend para WhatsApp Business con IA y MongoDB",
-  "main": "server.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node app.js",
     "dev": "node server.js",
     "build": "echo 'No build step required'",
     "render-start": "node src/app.js",
