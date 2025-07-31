@@ -20,6 +20,7 @@ if (missingVars.length > 0) {
 const express = require('express');
 const bodyParser = require('body-parser');
 const twilio = require('twilio');
+const cors = require('cors');
 
 // Importar servicios y configuración
 const database = require('./src/config/database');
@@ -31,8 +32,41 @@ const conversationsRoutes = require('./src/routes/conversations');
 const statsRoutes = require('./src/routes/stats');
 
 const app = express();
+
+// Configuración de CORS
+const allowedOrigins = [
+  process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
+  'https://twilio-9ubt.onrender.com', // Tu dominio de producción
+  'http://localhost:3000', // Para desarrollo local del backend
+  'http://127.0.0.1:5173', // Alternativa local
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como Postman, mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('🚫 CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json()); 
+app.use(bodyParser.json());
+
+// Middleware de logging para CORS
+app.use((req, res, next) => {
+  console.log(`🌐 ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'No origin'}`);
+  next();
+}); 
 
 // Configuración de Twilio
 const accountSid = process.env.TWILIO_SID;
