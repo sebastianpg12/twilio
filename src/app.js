@@ -1,2 +1,2 @@
-// Archivo de entrada para Render - Apunta al servidor principal
-module.exports = require('../server.js');
+// Archivo de entrada para Render - Inicia el servidor principal
+require('../server.js');
