@@ -1,18 +1,24 @@
 {
+  "name": "twilio-ai-bot",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp con IA usando Twilio y OpenAI",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "body-parser": "^2.2.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "openai": "^5.11.0",
     "twilio": "^5.8.0"
   },
-  "name": "twilio",
-  "version": "1.0.0",
-  "main": "app.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
+  "keywords": ["twilio", "whatsapp", "ai", "openai", "bot"],
   "author": "",
-  "license": "ISC",
-  "description": ""
+  "license": "ISC"
 }
