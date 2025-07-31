@@ -1,22 +1,51 @@
 // app.js
 const express = require('express');
 const bodyParser = require('body-parser');
+const twilio = require('twilio');
+
 const app = express();
-
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json()); // Para recibir JSON en POST
 
+const accountSid = 'process.env.TWILIO_SID';
+const authToken = '[AuthToken]'; // <-- Pega tu token real aquí
+const client = twilio(accountSid, authToken);
+
+// Ruta para recibir mensajes de Twilio
 app.post('/webhook', (req, res) => {
-  const from = req.body.From;           // Ej: 'whatsapp:+573001234567'
-  const msg = req.body.Body;            // Texto recibido
-  const mediaUrl = req.body.MediaUrl0;  // Si te mandan imagen/audio/documento
+  const from = req.body.From;
+  const msg = req.body.Body;
+  const mediaUrl = req.body.MediaUrl0;
 
   console.log("Número:", from);
   console.log("Mensaje:", msg || '[No hay texto]');
   if (mediaUrl) console.log("Multimedia recibida:", mediaUrl);
 
-  // Aquí puedes guardar, responder, procesar el mensaje...
-
-  res.status(200).end(); // No respondemos nada (pero puedes hacerlo)
+  res.status(200).end();
 });
 
-app.listen(3000, () => console.log("Webhook escuchando en puerto 3000"));
+// Ruta para enviar mensaje manual
+app.post('/send-message', async (req, res) => {
+  const { to, fecha, hora } = req.body;
+
+  try {
+    const message = await client.messages.create({
+      from: 'whatsapp:+14155238886', // Tu número de Twilio Sandbox o número verificado
+      contentSid: 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
+      contentVariables: JSON.stringify({
+        '1': fecha,
+        '2': hora
+      }),
+      to: `whatsapp:${to}`
+    });
+
+    console.log('Mensaje enviado. SID:', message.sid);
+    res.json({ success: true, sid: message.sid });
+  } catch (err) {
+    console.error('Error al enviar mensaje:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Servidor corriendo en puerto", PORT));
