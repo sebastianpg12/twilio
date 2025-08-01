@@ -35,36 +35,70 @@ const app = express();
 
 // Configuración de CORS
 const allowedOrigins = [
-  process.env.ALLOWED_ORIGIN || 'http://localhost:5173',
-  'https://twilio-9ubt.onrender.com', // Tu dominio de producción
-  'http://localhost:3000', // Para desarrollo local del backend
-  'http://127.0.0.1:5173', // Alternativa local
+  'http://localhost:3000',      // Backend local
+  'http://localhost:5173',      // Vite dev server por defecto
+  'http://localhost:5174',      // Vite dev server alternativo
+  'http://localhost:8080',      // Webpack dev server
+  'http://127.0.0.1:5173',      // Alternativa local IP
+  'http://127.0.0.1:5174',      // Alternativa local IP
+  'https://twilio-9ubt.onrender.com', // Producción
 ];
+
+// Agregar orígenes desde variables de entorno
+if (process.env.ALLOWED_ORIGINS) {
+  const envOrigins = process.env.ALLOWED_ORIGINS.split(',');
+  allowedOrigins.push(...envOrigins);
+}
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir requests sin origin (como Postman, mobile apps, etc.)
-    if (!origin) return callback(null, true);
+    console.log('🌐 CORS request from origin:', origin || 'NO ORIGIN');
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Permitir requests sin origin (Postman, mobile apps, curl, etc.)
+    if (!origin) {
+      console.log('✅ CORS: Allowing request without origin');
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS: Origin allowed:', origin);
       callback(null, true);
     } else {
-      console.log('🚫 CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.log('🚫 CORS: Origin blocked:', origin);
+      console.log('📋 CORS: Allowed origins:', allowedOrigins);
+      callback(new Error(`CORS blocked: Origin ${origin} not allowed`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  optionsSuccessStatus: 200 // Para soportar browsers legacy
 };
 
 app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// Middleware de logging para CORS
+// Middleware de logging para CORS y requests
 app.use((req, res, next) => {
-  console.log(`🌐 ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'No origin'}`);
+  const origin = req.get('Origin');
+  const method = req.method;
+  const path = req.path;
+  
+  console.log(`🌐 ${method} ${path} - Origin: ${origin || 'No origin'}`);
+  
+  // Log específico para OPTIONS (preflight requests)
+  if (method === 'OPTIONS') {
+    console.log('🔍 CORS Preflight request detected');
+    console.log('📋 Request headers:', req.headers);
+  }
+  
   next();
 }); 
 
@@ -286,6 +320,39 @@ app.get('/api/health', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Endpoint de diagnóstico CORS
+app.get('/api/cors-test', (req, res) => {
+  const origin = req.get('Origin');
+  const userAgent = req.get('User-Agent');
+  const referer = req.get('Referer');
+  
+  res.json({
+    success: true,
+    message: 'CORS is working! 🎉',
+    requestInfo: {
+      origin: origin || 'No origin header',
+      userAgent: userAgent || 'No user agent',
+      referer: referer || 'No referer',
+      method: req.method,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    },
+    corsConfig: {
+      allowedOrigins: [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:8080',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:5174',
+        'https://twilio-9ubt.onrender.com'
+      ],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      credentials: true
+    }
+  });
 });
 
 // Consultar IA directamente

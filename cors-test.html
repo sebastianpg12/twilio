@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Business API - Test CORS</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #25D366;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        button {
+            background-color: #25D366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #22c55e;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status.success { background-color: #28a745; }
+        .status.error { background-color: #dc3545; }
+        .status.pending { background-color: #ffc107; }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .endpoint-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 WhatsApp Business API - Test de Conectividad</h1>
+        
+        <div class="info">
+            <strong>📍 URL de la API:</strong> https://twilio-9ubt.onrender.com<br>
+            <strong>📍 Frontend actual:</strong> <span id="currentOrigin"></span><br>
+            <strong>🌐 CORS configurado para:</strong> localhost:5173, localhost:5174, localhost:3000, localhost:8080
+        </div>
+
+        <div class="test-section">
+            <h3><span class="status pending" id="cors-status"></span>Test 1: CORS Configuration</h3>
+            <div class="endpoint-info">GET /api/cors-test</div>
+            <button onclick="testCORS()">Probar CORS</button>
+            <div id="cors-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3><span class="status pending" id="health-status"></span>Test 2: Health Check</h3>
+            <div class="endpoint-info">GET /api/health</div>
+            <button onclick="testHealth()">Probar Salud del Servidor</button>
+            <div id="health-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3><span class="status pending" id="conversations-status"></span>Test 3: Get Conversations</h3>
+            <div class="endpoint-info">GET /api/conversations</div>
+            <button onclick="testConversations()">Obtener Conversaciones</button>
+            <div id="conversations-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3><span class="status pending" id="ai-status"></span>Test 4: AI Query</h3>
+            <div class="endpoint-info">POST /api/ask-ai</div>
+            <button onclick="testAI()">Consultar IA</button>
+            <div id="ai-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3><span class="status pending" id="bot-status"></span>Test 5: Bot Status</h3>
+            <div class="endpoint-info">GET /api/auto-response/status</div>
+            <button onclick="testBotStatus()">Estado del Bot</button>
+            <div id="bot-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Completo</h3>
+            <button onclick="runAllTests()" id="run-all-btn">Ejecutar Todos los Tests</button>
+            <button onclick="clearResults()">Limpiar Resultados</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://twilio-9ubt.onrender.com';
+        
+        // Mostrar el origin actual
+        document.getElementById('currentOrigin').textContent = window.location.origin;
+
+        function updateStatus(testId, success) {
+            const statusEl = document.getElementById(`${testId}-status`);
+            statusEl.className = `status ${success ? 'success' : 'error'}`;
+        }
+
+        function showResult(testId, content, isSuccess) {
+            const resultEl = document.getElementById(`${testId}-result`);
+            resultEl.textContent = JSON.stringify(content, null, 2);
+            resultEl.className = `result ${isSuccess ? 'success' : 'error'}`;
+            resultEl.style.display = 'block';
+            updateStatus(testId, isSuccess);
+        }
+
+        async function testCORS() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/cors-test`);
+                const data = await response.json();
+                showResult('cors', data, true);
+            } catch (error) {
+                showResult('cors', { error: error.message }, false);
+            }
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/health`);
+                const data = await response.json();
+                showResult('health', data, data.status === 'OK');
+            } catch (error) {
+                showResult('health', { error: error.message }, false);
+            }
+        }
+
+        async function testConversations() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/conversations`);
+                const data = await response.json();
+                showResult('conversations', data, data.success);
+            } catch (error) {
+                showResult('conversations', { error: error.message }, false);
+            }
+        }
+
+        async function testAI() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/ask-ai`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: '¿Está funcionando la API correctamente?',
+                        context: 'Test automatizado desde el navegador'
+                    })
+                });
+                const data = await response.json();
+                showResult('ai', data, data.success);
+            } catch (error) {
+                showResult('ai', { error: error.message }, false);
+            }
+        }
+
+        async function testBotStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auto-response/status`);
+                const data = await response.json();
+                showResult('bot', data, true);
+            } catch (error) {
+                showResult('bot', { error: error.message }, false);
+            }
+        }
+
+        async function runAllTests() {
+            const btn = document.getElementById('run-all-btn');
+            btn.disabled = true;
+            btn.textContent = 'Ejecutando tests...';
+
+            clearResults();
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testCORS();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testHealth();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testConversations();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testAI();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testBotStatus();
+
+            btn.disabled = false;
+            btn.textContent = 'Ejecutar Todos los Tests';
+        }
+
+        function clearResults() {
+            const results = document.querySelectorAll('.result');
+            results.forEach(result => {
+                result.style.display = 'none';
+                result.textContent = '';
+            });
+
+            const statuses = document.querySelectorAll('.status');
+            statuses.forEach(status => {
+                status.className = 'status pending';
+            });
+        }
+
+        // Ejecutar test de CORS automáticamente al cargar
+        window.addEventListener('load', () => {
+            setTimeout(testCORS, 1000);
+        });
+    </script>
+</body>
+</html>

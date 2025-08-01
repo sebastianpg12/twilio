@@ -3,6 +3,25 @@
 const API_BASE_URL = 'https://twilio-9ubt.onrender.com';
 // Para desarrollo local: const API_BASE_URL = 'http://localhost:3000';
 
+// ⚠️ IMPORTANTE: El backend ya está configurado para aceptar requests desde:
+// - http://localhost:5173 (Vite default)
+// - http://localhost:5174 (Vite alternative) 
+// - http://localhost:3000 (Backend local)
+// - http://localhost:8080 (Webpack dev server)
+
+// Función para probar CORS
+async function testCORS() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cors-test`);
+    const data = await response.json();
+    console.log('✅ CORS Test Result:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ CORS Test Failed:', error);
+    return { error: error.message };
+  }
+}
+
 // Ejemplo 1: Verificar estado del servidor
 async function checkHealth() {
   try {
@@ -131,6 +150,16 @@ async function getStats() {
 /*
 // En tu componente de React/Vue o archivo JS:
 
+// ¡NUEVO! Probar CORS primero
+testCORS().then(result => {
+  if (result.success) {
+    console.log('✅ CORS funcionando correctamente');
+    // Continuar con el resto de la aplicación
+  } else {
+    console.error('❌ Problema con CORS:', result);
+  }
+});
+
 // Verificar servidor
 checkHealth();
 
@@ -145,3 +174,42 @@ sendManualMessage('+1234567890', 'Hola desde el frontend!');
 // Usar IA
 askAI('¿Cuáles son los horarios de atención?', 'Clínica médica');
 */
+
+// 🧪 FUNCIÓN DE TEST COMPLETO
+async function runCompleteAPITest() {
+  console.log('🧪 Iniciando test completo de la API...');
+  
+  // Test 1: CORS
+  console.log('\n1️⃣ Testing CORS...');
+  const corsResult = await testCORS();
+  console.log(corsResult.success ? '✅ CORS OK' : '❌ CORS Failed');
+  
+  // Test 2: Health Check
+  console.log('\n2️⃣ Testing Health Check...');
+  const healthResult = await checkHealth();
+  console.log(healthResult ? '✅ Health OK' : '❌ Health Failed');
+  
+  // Test 3: Get Conversations
+  console.log('\n3️⃣ Testing Get Conversations...');
+  const conversations = await getConversations();
+  console.log(conversations ? '✅ Conversations OK' : '❌ Conversations Failed');
+  
+  // Test 4: AI Query
+  console.log('\n4️⃣ Testing AI Query...');
+  const aiResult = await askAI('¿Está funcionando la API?', 'Test automatizado');
+  console.log(aiResult ? '✅ AI OK' : '❌ AI Failed');
+  
+  // Test 5: Bot Status
+  console.log('\n5️⃣ Testing Bot Status...');
+  try {
+    const botStatus = await fetch(`${API_BASE_URL}/api/auto-response/status`).then(r => r.json());
+    console.log(botStatus ? '✅ Bot Status OK' : '❌ Bot Status Failed');
+  } catch (error) {
+    console.log('❌ Bot Status Failed:', error.message);
+  }
+  
+  console.log('\n🎉 Test completo finalizado!');
+}
+
+// Para ejecutar el test completo desde la consola del navegador:
+// runCompleteAPITest();
