@@ -105,7 +105,10 @@ app.use((req, res, next) => {
 // Configuración de Twilio
 const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER || 'whatsapp:+14155238886';
 const client = require('twilio')(accountSid, authToken);
+
+console.log('📞 Número de WhatsApp configurado:', twilioPhoneNumber);
 
 // Variable para controlar el modo de respuesta automática
 let autoResponseEnabled = true;
@@ -141,7 +144,7 @@ app.post('/webhook', async (req, res) => {
 
       // Enviar respuesta
       const response = await client.messages.create({
-        from: 'whatsapp:+14155238886',
+        from: twilioPhoneNumber,
         body: respuestaIA,
         to: from
       });
@@ -219,7 +222,7 @@ app.post('/api/send-message', async (req, res) => {
     
     // Enviar con Twilio
     const response = await client.messages.create({
-      from: 'whatsapp:+14155238886',
+      from: twilioPhoneNumber,
       body: message,
       to: phoneNumber
     });
@@ -267,7 +270,7 @@ app.post('/api/send-ai-message', async (req, res) => {
     
     // Enviar con Twilio
     const response = await client.messages.create({
-      from: 'whatsapp:+14155238886',
+      from: twilioPhoneNumber,
       body: mensajeGenerado,
       to: phoneNumber
     });
@@ -352,6 +355,33 @@ app.get('/api/cors-test', (req, res) => {
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true
     }
+  });
+});
+
+// Endpoint para verificar configuración de WhatsApp
+app.get('/api/whatsapp-config', (req, res) => {
+  const phoneNumber = twilioPhoneNumber;
+  const isSandbox = phoneNumber.includes('+14155238886');
+  
+  res.json({
+    success: true,
+    config: {
+      phoneNumber: phoneNumber,
+      isSandboxNumber: isSandbox,
+      isProduction: !isSandbox,
+      autoResponseEnabled: autoResponseEnabled,
+      message: isSandbox ? 
+        '⚠️ Usando número de sandbox - Solo puede enviar a números verificados' :
+        '✅ Usando número de producción - Puede enviar a cualquier número'
+    },
+    recommendations: isSandbox ? [
+      'Configura tu número real de WhatsApp Business',
+      'Actualiza TWILIO_PHONE_NUMBER en las variables de entorno',
+      'Verifica que tengas una cuenta de Twilio con WhatsApp Business aprobado'
+    ] : [
+      'Configuración correcta para producción',
+      'Puedes enviar mensajes a cualquier número de WhatsApp'
+    ]
   });
 });
 
