@@ -118,6 +118,69 @@ class Message {
       .limit(limit)
       .toArray();
   }
+
+  static async getStatsByClient(clientId) {
+    const messages = database.getMessagesCollection();
+    
+    const pipeline = [
+      {
+        $match: {
+          clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+        }
+      },
+      {
+        $group: {
+          _id: '$type',
+          count: { $sum: 1 }
+        }
+      }
+    ];
+
+    const result = await messages.aggregate(pipeline).toArray();
+    
+    const stats = {
+      sent: 0,
+      received: 0,
+      aiAuto: 0,
+      aiAssisted: 0,
+      total: 0,
+      aiGenerated: 0
+    };
+
+    result.forEach(item => {
+      switch (item._id) {
+        case 'sent':
+          stats.sent = item.count;
+          break;
+        case 'received':
+          stats.received = item.count;
+          break;
+        case 'ai-auto':
+          stats.aiAuto = item.count;
+          stats.aiGenerated += item.count;
+          break;
+        case 'ai-assisted':
+          stats.aiAssisted = item.count;
+          stats.aiGenerated += item.count;
+          break;
+      }
+      stats.total += item.count;
+    });
+
+    return stats;
+  }
+
+  static async searchMessagesByClient(clientId, query, limit = 50) {
+    const messages = database.getMessagesCollection();
+    return await messages
+      .find({
+        clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId,
+        text: { $regex: query, $options: 'i' }
+      })
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray();
+  }
 }
 
 module.exports = Message;
