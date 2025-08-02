@@ -49,133 +49,113 @@ const allowedOrigins = [
   'https://twilio-9ubt.onrender.com', // Producción
 ];
 
-// Agregar orígenes desde variables de entorno
-if (process.env.ALLOWED_ORIGINS) {
-  const envOrigins = process.env.ALLOWED_ORIGINS.split(',');
-  allowedOrigins.push(...envOrigins);
-}
-
-const corsOptions = {
+app.use(cors({
   origin: function (origin, callback) {
-    console.log('🌐 CORS request from origin:', origin || 'NO ORIGIN');
+    // Permitir requests sin origin (como Postman) en desarrollo
+    if (!origin) return callback(null, true);
     
-    // Permitir requests sin origin (Postman, mobile apps, curl, etc.)
-    if (!origin) {
-      console.log('✅ CORS: Allowing request without origin');
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      console.log('✅ CORS: Origin allowed:', origin);
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.log('🚫 CORS: Origin blocked:', origin);
-      console.log('📋 CORS: Allowed origins:', allowedOrigins);
-      callback(new Error(`CORS blocked: Origin ${origin} not allowed`));
+      console.log('❌ CORS: Origin no permitido:', origin);
+      callback(new Error('No permitido por CORS'), false);
     }
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  optionsSuccessStatus: 200 // Para soportar browsers legacy
-};
+  credentials: true
+}));
 
-app.use(cors(corsOptions));
+// Middlewares
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-
-// Middleware de logging para CORS y requests
-app.use((req, res, next) => {
-  const origin = req.get('Origin');
-  const method = req.method;
-  const path = req.path;
-  
-  console.log(`🌐 ${method} ${path} - Origin: ${origin || 'No origin'}`);
-  
-  // Log específico para OPTIONS (preflight requests)
-  if (method === 'OPTIONS') {
-    console.log('🔍 CORS Preflight request detected');
-    console.log('📋 Request headers:', req.headers);
-  }
-  
-  next();
-}); 
 
 // Configuración de Twilio
 const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioClient = twilio(accountSid, authToken);
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER || 'whatsapp:+14155238886';
-const client = require('twilio')(accountSid, authToken);
 
 console.log('📞 Número de WhatsApp configurado:', twilioPhoneNumber);
 
-// Variable para controlar el modo de respuesta automática
+// Variables globales
 let autoResponseEnabled = true;
 
-// ========== WEBHOOK - RECIBIR MENSAJES DE WHATSAPP ==========
+// ========== FUNCIONES AUXILIARES ==========
+
+async function ensureMarketTechExists() {
+  try {
+    let marketTech = await Client.findByTwilioNumber('+14155238886');
+    if (!marketTech) {
+      console.log('🏢 Creando cliente MarketTech por defecto...');
+      marketTech = await Client.createDefaultMarketTech();
+      console.log('✅ Cliente MarketTech creado:', marketTech.name);
+    }
+    return marketTech;
+  } catch (error) {
+    console.error('❌ Error asegurando MarketTech:', error);
+    throw error;
+  }
+}
+
+// ========== WEBHOOK PRINCIPAL ==========
 
 app.post('/webhook', async (req, res) => {
-  console.log("🔔 ===== WEBHOOK ACTIVADO =====");
-  console.log("📋 Body:", req.body);
-  
-  const from = req.body.From;
-  const msg = req.body.Body;
-  const mediaUrl = req.body.MediaUrl0;
-  const to = req.body.To; // Número de Twilio que recibió el mensaje
-
-  console.log("📞 De:", from);
-  console.log("� A:", to);
-  console.log("💬 Mensaje:", msg || '[VACÍO]');
-
   try {
-    // SIEMPRE guardar el mensaje entrante en la BD con sistema multi-cliente
-    if (msg && msg.trim()) {
-      const result = await ConversationService.processIncomingMessage(to, from, msg, mediaUrl);
-      const { client, conversation } = result;
-      console.log(`💾 Mensaje guardado para cliente: ${client.name} (${client._id})`);
+    const incomingMessage = req.body.Body || '';
+    const fromNumber = req.body.From || '';
+    const toNumber = req.body.To || '';
 
-      // RESPUESTA AUTOMÁTICA CON IA (verificar configuraciones del cliente y conversación)
-      const aiEnabled = await ConversationService.isAIEnabled(conversation, client);
-      const autoResponseEnabled = await ConversationService.isAutoResponseEnabled(conversation, client);
+    console.log(`📩 Mensaje recibido de ${fromNumber} para ${toNumber}: "${incomingMessage}"`);
+
+    // Procesar mensaje y obtener cliente
+    const result = await ConversationService.processIncomingMessage(
+      toNumber, 
+      fromNumber, 
+      incomingMessage
+    );
+
+    const { conversation, message, client: marketTechClient } = result;
+
+    // Verificar si debe responder automáticamente
+    const shouldAutoRespond = await ConversationService.isAutoResponseEnabled(conversation, marketTechClient);
+    
+    if (shouldAutoRespond && autoResponseEnabled) {
+      console.log('🤖 Generando respuesta automática...');
       
-      console.log(`🤖 IA habilitada: ${aiEnabled}, Auto-respuesta: ${autoResponseEnabled}`);
+      try {
+        const aiResponse = await respuestaInteligente(
+          incomingMessage, 
+          fromNumber,
+          marketTechClient
+        );
 
-      if (aiEnabled && autoResponseEnabled && msg.trim()) {
-        console.log("🤖 Generando respuesta automática...");
-        
-        const respuestaIA = await respuestaInteligente(msg);
-        console.log("💡 Respuesta generada:", respuestaIA);
+        if (aiResponse && aiResponse.trim()) {
+          // Enviar respuesta usando cliente de Twilio
+          const messageResponse = await twilioClient.messages.create({
+            from: twilioPhoneNumber,
+            to: fromNumber,
+            body: aiResponse
+          });
+          
+          // Guardar respuesta en BD
+          await ConversationService.saveOutgoingMessage(
+            fromNumber,
+            marketTechClient._id,
+            aiResponse,
+            'ai-auto'
+          );
 
-        // Enviar respuesta usando las credenciales del cliente
-        const twilioClient = require('twilio')(client.twilioSid, client.twilioAuthToken);
-        const response = await twilioClient.messages.create({
-          from: client.twilioPhoneNumber,
-          body: respuestaIA,
-          to: from
-        });
-
-        // Guardar respuesta automática en BD
-        await ConversationService.sendMessage(from, client._id, respuestaIA, 'ai-auto', {
-          twilioSid: response.sid,
-          isAiGenerated: true
-        });
-
-        console.log("✅ Respuesta automática enviada y guardada. SID:", response.sid);
+          console.log(`✅ Respuesta automática enviada a ${fromNumber}`);
+        }
+      } catch (aiError) {
+        console.error('❌ Error generando respuesta IA:', aiError);
       }
     }
-    
-  } catch (error) {
-    console.error("❌ Error procesando webhook:", error);
-  }
 
-  console.log("🏁 ===== FIN WEBHOOK =====\n");
-  res.status(200).end();
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('❌ Error en webhook:', error);
+    res.status(500).send('Error procesando mensaje');
+  }
 });
 
 // ========== RUTAS API ==========
@@ -187,7 +167,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/setup', setupRoutes);
 
 // Rutas de clientes (multi-cliente)
-// app.use('/api/clients', clientsRoutes); // TEMP: Comentado para debug
+app.use('/api/clients', clientsRoutes);
 
 // Rutas de dashboard por cliente
 app.use('/api/clients', dashboardRoutes);
@@ -198,242 +178,100 @@ app.use('/api/conversations', conversationsRoutes);
 // Rutas de estadísticas (mantener compatibilidad)
 app.use('/api/stats', statsRoutes);
 
-// ========== CONTROL DE MODO AUTOMÁTICO ==========
+// ========== RUTAS ADICIONALES ==========
 
-// Activar/desactivar respuestas automáticas
-app.post('/api/auto-response/toggle', (req, res) => {
-  const { enabled } = req.body;
-  
-  if (typeof enabled === 'boolean') {
-    autoResponseEnabled = enabled;
-  } else {
-    autoResponseEnabled = !autoResponseEnabled;
-  }
-
-  console.log(`🤖 Modo automático ${autoResponseEnabled ? 'ACTIVADO' : 'DESACTIVADO'}`);
-
-  res.json({ 
-    success: true, 
-    autoResponseEnabled,
-    message: `Modo automático ${autoResponseEnabled ? 'ACTIVADO' : 'DESACTIVADO'}` 
-  });
-});
-
-// Ver estado del modo automático
-app.get('/api/auto-response/status', (req, res) => {
+// Health check
+app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    autoResponseEnabled,
-    status: autoResponseEnabled ? "ACTIVADO" : "DESACTIVADO"
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    database: database.isConnected() ? 'connected' : 'disconnected'
   });
 });
 
-// ========== ENVÍO DE MENSAJES ==========
-
-// Enviar mensaje manual
+// Envío manual de mensajes
 app.post('/api/send-message', async (req, res) => {
-  const { to, message } = req.body;
-
-  if (!to || !message) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Se requiere destinatario (to) y mensaje' 
-    });
-  }
-
   try {
-    const phoneNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-    
-    // Enviar con Twilio
-    const response = await client.messages.create({
-      from: twilioPhoneNumber,
-      body: message,
-      to: phoneNumber
-    });
+    const { to, message } = req.body;
 
-    // Guardar en BD
-    await ConversationService.sendMessage(phoneNumber, message, 'sent', {
-      twilioSid: response.sid
-    });
-
-    console.log('📤 Mensaje manual enviado y guardado. SID:', response.sid);
-    
-    res.json({ 
-      success: true, 
-      sid: response.sid,
-      to: phoneNumber,
-      message,
-      type: "manual"
-    });
-  } catch (error) {
-    console.error('Error enviando mensaje manual:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-// Enviar mensaje con asistencia de IA
-app.post('/api/send-ai-message', async (req, res) => {
-  const { to, prompt, context } = req.body;
-
-  if (!to || !prompt) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Se requiere destinatario (to) y prompt para la IA' 
-    });
-  }
-
-  try {
-    const phoneNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-    
-    // Generar mensaje con IA
-    console.log("🤖 Generando mensaje con IA...");
-    const mensajeGenerado = await preguntarIA(prompt, context);
-    
-    // Enviar con Twilio
-    const response = await client.messages.create({
-      from: twilioPhoneNumber,
-      body: mensajeGenerado,
-      to: phoneNumber
-    });
-
-    // Guardar en BD
-    await ConversationService.sendMessage(phoneNumber, mensajeGenerado, 'ai-assisted', {
-      twilioSid: response.sid,
-      isAiGenerated: true,
-      aiPrompt: prompt
-    });
-
-    console.log('📤 Mensaje asistido por IA enviado y guardado. SID:', response.sid);
-    
-    res.json({ 
-      success: true, 
-      sid: response.sid,
-      to: phoneNumber,
-      prompt,
-      generatedMessage: mensajeGenerado,
-      type: "ai-assisted"
-    });
-  } catch (error) {
-    console.error('Error enviando mensaje asistido:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
-
-// ========== UTILIDADES ==========
-
-// Estado de salud del servidor
-app.get('/api/health', async (req, res) => {
-  try {
-    const stats = await ConversationService.getStats();
-    
-    res.json({
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      autoResponseEnabled,
-      database: 'connected',
-      server: 'WhatsApp Business Backend',
-      stats
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'ERROR',
-      timestamp: new Date().toISOString(),
-      error: error.message
-    });
-  }
-});
-
-// Endpoint de diagnóstico CORS
-app.get('/api/cors-test', (req, res) => {
-  const origin = req.get('Origin');
-  const userAgent = req.get('User-Agent');
-  const referer = req.get('Referer');
-  
-  res.json({
-    success: true,
-    message: 'CORS is working! 🎉',
-    requestInfo: {
-      origin: origin || 'No origin header',
-      userAgent: userAgent || 'No user agent',
-      referer: referer || 'No referer',
-      method: req.method,
-      headers: req.headers,
-      timestamp: new Date().toISOString()
-    },
-    corsConfig: {
-      allowedOrigins: [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:8080',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:5174',
-        'https://twilio-9ubt.onrender.com'
-      ],
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      credentials: true
+    if (!to || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Los campos "to" y "message" son requeridos'
+      });
     }
-  });
-});
 
-// Endpoint para verificar configuración de WhatsApp
-app.get('/api/whatsapp-config', (req, res) => {
-  const phoneNumber = twilioPhoneNumber;
-  const isSandbox = phoneNumber.includes('+14155238886');
-  
-  res.json({
-    success: true,
-    config: {
-      phoneNumber: phoneNumber,
-      isSandboxNumber: isSandbox,
-      isProduction: !isSandbox,
-      autoResponseEnabled: autoResponseEnabled,
-      message: isSandbox ? 
-        '⚠️ Usando número de sandbox - Solo puede enviar a números verificados' :
-        '✅ Usando número de producción - Puede enviar a cualquier número'
-    },
-    recommendations: isSandbox ? [
-      'Configura tu número real de WhatsApp Business',
-      'Actualiza TWILIO_PHONE_NUMBER en las variables de entorno',
-      'Verifica que tengas una cuenta de Twilio con WhatsApp Business aprobado'
-    ] : [
-      'Configuración correcta para producción',
-      'Puedes enviar mensajes a cualquier número de WhatsApp'
-    ]
-  });
+    const messageResponse = await twilioClient.messages.create({
+      from: twilioPhoneNumber,
+      to: to,
+      body: message
+    });
+
+    res.json({
+      success: true,
+      message: 'Mensaje enviado exitosamente',
+      twilioSid: messageResponse.sid
+    });
+  } catch (error) {
+    console.error('Error enviando mensaje:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error enviando mensaje: ' + error.message
+    });
+  }
 });
 
 // Consultar IA directamente
 app.post('/api/ask-ai', async (req, res) => {
-  const { question, context } = req.body;
-
-  if (!question) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Se requiere una pregunta' 
-    });
-  }
-
   try {
-    const respuesta = await preguntarIA(question, context);
-    res.json({ 
-      success: true, 
+    const { question, context } = req.body;
+
+    if (!question) {
+      return res.status(400).json({
+        success: false,
+        error: 'La pregunta es requerida'
+      });
+    }
+
+    const response = await preguntarIA(question, context);
+
+    res.json({
+      success: true,
       question,
-      answer: respuesta 
+      response,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error consultando IA:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      error: 'Error consultando IA: ' + error.message
     });
   }
+});
+
+// Control global de auto-respuesta (legacy)
+app.get('/api/auto-response/status', (req, res) => {
+  res.json({
+    success: true,
+    enabled: autoResponseEnabled,
+    message: autoResponseEnabled ? 'Auto-respuesta activada' : 'Auto-respuesta desactivada'
+  });
+});
+
+app.post('/api/auto-response/toggle', (req, res) => {
+  const { enabled } = req.body;
+  autoResponseEnabled = enabled !== undefined ? enabled : !autoResponseEnabled;
+  
+  console.log(`🔄 Auto-respuesta ${autoResponseEnabled ? 'activada' : 'desactivada'} globalmente`);
+  
+  res.json({
+    success: true,
+    enabled: autoResponseEnabled,
+    message: `Auto-respuesta ${autoResponseEnabled ? 'activada' : 'desactivada'} exitosamente`
+  });
 });
 
 // ========== INICIO DEL SERVIDOR ==========
@@ -442,57 +280,24 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
-    // Conectar a MongoDB
+    console.log('🔌 Conectando a MongoDB...');
     await database.connect();
-    
-    // Inicializar cliente MarketTech por defecto
-    console.log('🏢 Inicializando sistema multi-cliente...');
-    await Client.createDefaultMarketTech();
-    
-    // Iniciar servidor
+    console.log('✅ Conectado a MongoDB exitosamente');
+
+    // Asegurar que MarketTech existe
+    await ensureMarketTechExists();
+
     app.listen(PORT, () => {
-      console.log("🚀 Servidor WhatsApp Business Backend corriendo en puerto", PORT);
-      console.log("🌍 Entorno:", process.env.NODE_ENV || 'development');
-      console.log("💾 Base de datos: MongoDB conectada");
-      console.log("🏢 Sistema multi-cliente inicializado");
-      console.log("\n=== RUTAS API MULTI-CLIENTE ===");
-      console.log("POST /webhook - Webhook de Twilio (multi-cliente)");
-      console.log("GET  /api/clients - Listar clientes");
-      console.log("GET  /api/clients/:id - Obtener cliente específico");
-      console.log("POST /api/clients - Crear nuevo cliente");
-      console.log("GET  /api/clients/:id/conversations - Conversaciones del cliente");
-      console.log("GET  /api/clients/:id/dashboard - Dashboard del cliente");
-      console.log("GET  /api/clients/:id/stats - Estadísticas del cliente");
-      console.log("POST /api/clients/:id/toggle-ai - Activar/desactivar IA del cliente");
-      console.log("POST /api/clients/:id/toggle-auto-response - Control auto-respuesta");
-      console.log("POST /api/clients/:id/conversations/:phone/toggle-ai - IA por conversación");
-      console.log("\n=== RUTAS API GENERALES ===");
-      console.log("GET  /api/conversations - Listar conversaciones (legacy)");
-      console.log("GET  /api/stats - Estadísticas generales (legacy)");
-      console.log("POST /api/send-message - Enviar mensaje manual");
-      console.log("POST /api/send-ai-message - Enviar con IA");
-      console.log("GET  /api/health - Estado del servidor");
-      console.log("POST /api/ask-ai - Consultar IA directamente");
-      console.log("\n✅ Servidor multi-cliente listo");
+      console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+      console.log(`🌐 URL local: http://localhost:${PORT}`);
+      console.log(`📡 Webhook URL: http://localhost:${PORT}/webhook`);
+      console.log('✅ Sistema multi-cliente inicializado');
     });
-    
   } catch (error) {
-    console.error("❌ Error iniciando servidor:", error);
+    console.error('❌ [APP.JS] Error fatal al cargar servidor:', error.message);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 }
-
-// Manejo de cierre graceful
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Cerrando servidor...');
-  await database.disconnect();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('\n🛑 Cerrando servidor...');
-  await database.disconnect();
-  process.exit(0);
-});
 
 startServer();

@@ -231,4 +231,428 @@ router.get('/health', adminAuth, async (req, res) => {
   }
 });
 
+// ========== CRUD DE CLIENTES (ADMINISTRACIÓN) ==========
+
+/**
+ * GET /api/admin/clients
+ * Listar todos los clientes (CRUD: READ)
+ */
+router.get('/clients', adminAuth, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, search = '' } = req.query;
+    
+    let clients = await Client.getAll();
+    
+    // Filtrar por búsqueda si se proporciona
+    if (search) {
+      clients = clients.filter(client => 
+        client.name.toLowerCase().includes(search.toLowerCase()) ||
+        client.business?.toLowerCase().includes(search.toLowerCase()) ||
+        client.phoneNumber?.includes(search) ||
+        client.twilioPhoneNumber?.includes(search)
+      );
+    }
+    
+    // Paginación
+    const paginatedClients = clients.slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+    
+    // Agregar estadísticas básicas a cada cliente
+    const clientsWithStats = [];
+    for (const client of paginatedClients) {
+      try {
+        const stats = await ConversationService.getStatsByClient(client._id);
+        clientsWithStats.push({
+          ...client,
+          stats: {
+            conversations: stats.conversations.total,
+            messages: stats.messages.total,
+            unreadConversations: stats.conversations.unread
+          }
+        });
+      } catch (error) {
+        clientsWithStats.push({
+          ...client,
+          stats: { conversations: 0, messages: 0, unreadConversations: 0 }
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: clientsWithStats,
+      pagination: {
+        total: clients.length,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        hasMore: (parseInt(offset) + parseInt(limit)) < clients.length
+      }
+    });
+  } catch (error) {
+    console.error('Error listando clientes:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/clients/:id
+ * Obtener cliente específico (CRUD: READ)
+ */
+router.get('/clients/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const client = await Client.getById(id);
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente no encontrado'
+      });
+    }
+    
+    // Agregar estadísticas detalladas
+    try {
+      const stats = await ConversationService.getStatsByClient(id);
+      client.detailedStats = stats;
+    } catch (error) {
+      client.detailedStats = null;
+    }
+    
+    res.json({
+      success: true,
+      data: client
+    });
+  } catch (error) {
+    console.error('Error obteniendo cliente:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/clients
+ * Crear nuevo cliente (CRUD: CREATE)
+ */
+router.post('/clients', adminAuth, async (req, res) => {
+  try {
+    const {
+      name,
+      business = null,
+      phoneNumber = null,
+      email = null,
+      twilioPhoneNumber,
+      twilioSid = null,
+      twilioAuthToken = null,
+      openaiApiKey = null,
+      welcomeMessage = `¡Hola! Somos ${name}. Gracias por contactarnos. ¿En qué podemos ayudarte hoy?`,
+      aiEnabled = true,
+      autoResponse = true,
+      plan = 'basic'
+    } = req.body;
+    
+    // Validaciones
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        error: 'El nombre del cliente es requerido'
+      });
+    }
+    
+    if (!twilioPhoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'El número de teléfono de Twilio es requerido'
+      });
+    }
+    
+    // Verificar que el número no esté ya en uso
+    const existingClient = await Client.findByTwilioNumber(twilioPhoneNumber);
+    if (existingClient) {
+      return res.status(400).json({
+        success: false,
+        error: 'Ya existe un cliente con ese número de Twilio'
+      });
+    }
+    
+    const clientData = {
+      name,
+      business,
+      phoneNumber,
+      email,
+      twilioPhoneNumber,
+      twilioSid,
+      twilioAuthToken,
+      openaiApiKey,
+      welcomeMessage,
+      aiEnabled,
+      autoResponse,
+      plan
+    };
+    
+    const newClient = await Client.create(clientData);
+    
+    res.status(201).json({
+      success: true,
+      message: `Cliente "${name}" creado exitosamente`,
+      data: newClient
+    });
+  } catch (error) {
+    console.error('Error creando cliente:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor: ' + error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/admin/clients/:id
+ * Actualizar cliente existente (CRUD: UPDATE)
+ */
+router.put('/clients/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    // Verificar que el cliente existe
+    const existingClient = await Client.getById(id);
+    if (!existingClient) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente no encontrado'
+      });
+    }
+    
+    // Si se está cambiando el número de Twilio, verificar que no esté en uso
+    if (updateData.twilioPhoneNumber && updateData.twilioPhoneNumber !== existingClient.twilioPhoneNumber) {
+      const clientWithNumber = await Client.findByTwilioNumber(updateData.twilioPhoneNumber);
+      if (clientWithNumber && clientWithNumber._id.toString() !== id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Ya existe otro cliente con ese número de Twilio'
+        });
+      }
+    }
+    
+    const updatedClient = await Client.update(id, updateData);
+    
+    res.json({
+      success: true,
+      message: `Cliente "${updatedClient.name}" actualizado exitosamente`,
+      data: updatedClient
+    });
+  } catch (error) {
+    console.error('Error actualizando cliente:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor: ' + error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/clients/:id
+ * Eliminar cliente (CRUD: DELETE)
+ */
+router.delete('/clients/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { permanent = false } = req.query;
+    
+    // Verificar que el cliente existe
+    const client = await Client.getById(id);
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente no encontrado'
+      });
+    }
+    
+    // Prevenir eliminar MarketTech accidentalmente
+    if (client.name === 'MarketTech' && !permanent) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se puede eliminar MarketTech. Use ?permanent=true si está seguro.',
+        warning: 'MarketTech es el cliente por defecto del sistema'
+      });
+    }
+    
+    if (permanent) {
+      // Eliminación permanente
+      await Client.delete(id);
+      res.json({
+        success: true,
+        message: `Cliente "${client.name}" eliminado permanentemente`
+      });
+    } else {
+      // Desactivación (soft delete)
+      await Client.update(id, { isActive: false });
+      res.json({
+        success: true,
+        message: `Cliente "${client.name}" desactivado exitosamente`
+      });
+    }
+  } catch (error) {
+    console.error('Error eliminando cliente:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor: ' + error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/clients/:id/activate
+ * Reactivar cliente desactivado
+ */
+router.post('/clients/:id/activate', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const client = await Client.getById(id);
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente no encontrado'
+      });
+    }
+    
+    const updatedClient = await Client.update(id, { isActive: true });
+    
+    res.json({
+      success: true,
+      message: `Cliente "${updatedClient.name}" reactivado exitosamente`,
+      data: updatedClient
+    });
+  } catch (error) {
+    console.error('Error reactivando cliente:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/clients/:id/conversations
+ * Ver todas las conversaciones de un cliente específico
+ */
+router.get('/clients/:id/conversations', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 20, offset = 0 } = req.query;
+    
+    const client = await Client.getById(id);
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente no encontrado'
+      });
+    }
+    
+    const conversations = await ConversationService.getAllConversationsByClient(
+      id, 
+      parseInt(limit), 
+      parseInt(offset)
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        client: {
+          id: client._id,
+          name: client.name,
+          business: client.business
+        },
+        conversations,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo conversaciones del cliente:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/clients/bulk-actions
+ * Acciones en lote para múltiples clientes
+ */
+router.post('/clients/bulk-actions', adminAuth, async (req, res) => {
+  try {
+    const { action, clientIds, settings = {} } = req.body;
+    
+    if (!action || !clientIds || !Array.isArray(clientIds)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Acción y lista de IDs de clientes son requeridos'
+      });
+    }
+    
+    const results = [];
+    
+    for (const clientId of clientIds) {
+      try {
+        let result = { clientId, status: 'success' };
+        
+        switch (action) {
+          case 'activate':
+            await Client.update(clientId, { isActive: true });
+            result.message = 'Activado';
+            break;
+            
+          case 'deactivate':
+            await Client.update(clientId, { isActive: false });
+            result.message = 'Desactivado';
+            break;
+            
+          case 'toggle-ai':
+            await Client.toggleAI(clientId, settings.enabled);
+            result.message = `IA ${settings.enabled ? 'activada' : 'desactivada'}`;
+            break;
+            
+          case 'toggle-auto-response':
+            await Client.toggleAutoResponse(clientId, settings.enabled);
+            result.message = `Auto-respuesta ${settings.enabled ? 'activada' : 'desactivada'}`;
+            break;
+            
+          default:
+            result.status = 'error';
+            result.message = 'Acción no válida';
+        }
+        
+        results.push(result);
+      } catch (error) {
+        results.push({
+          clientId,
+          status: 'error',
+          message: error.message
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Acción "${action}" aplicada a ${clientIds.length} clientes`,
+      results
+    });
+  } catch (error) {
+    console.error('Error en acciones en lote:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
 module.exports = router;

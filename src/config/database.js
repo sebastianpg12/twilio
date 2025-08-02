@@ -52,6 +52,10 @@ class Database {
   getClientsCollection() {
     return this.getDb().collection('clients');
   }
+
+  isConnected() {
+    return this.client && this.db;
+  }
 }
 
 module.exports = new Database();

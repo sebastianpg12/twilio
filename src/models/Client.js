@@ -101,6 +101,56 @@ class Client {
     );
   }
 
+  static async getById(clientId) {
+    const clients = database.getClientsCollection();
+    const client = await clients.findOne({ 
+      _id: typeof clientId === 'string' ? new ObjectId(clientId) : clientId 
+    });
+    return client;
+  }
+
+  static async update(clientId, updateData) {
+    const clients = database.getClientsCollection();
+    
+    // Preparar datos de actualización
+    const updateFields = { ...updateData };
+    updateFields.updatedAt = new Date();
+    
+    // Si hay configuraciones anidadas, preservar la estructura
+    if (updateData.settings) {
+      const currentClient = await this.getById(clientId);
+      updateFields.settings = {
+        ...currentClient.settings,
+        ...updateData.settings
+      };
+    }
+    
+    const result = await clients.updateOne(
+      { _id: typeof clientId === 'string' ? new ObjectId(clientId) : clientId },
+      { $set: updateFields }
+    );
+    
+    if (result.matchedCount === 0) {
+      throw new Error('Cliente no encontrado');
+    }
+    
+    return await this.getById(clientId);
+  }
+
+  static async delete(clientId) {
+    const clients = database.getClientsCollection();
+    
+    const result = await clients.deleteOne({
+      _id: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+    });
+    
+    if (result.deletedCount === 0) {
+      throw new Error('Cliente no encontrado');
+    }
+    
+    return { success: true, message: 'Cliente eliminado permanentemente' };
+  }
+
   // Crear cliente por defecto MarketTech
   static async createDefaultMarketTech() {
     const existingClient = await this.findByTwilioNumber('+14155238886');

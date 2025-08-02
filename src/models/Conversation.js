@@ -147,6 +147,75 @@ class Conversation {
       }
     );
   }
+
+  // Métodos adicionales para soporte multi-cliente
+  static async getAll(limit = 50, offset = 0) {
+    const conversations = database.getConversationsCollection();
+    return await conversations
+      .find({ isActive: true })
+      .sort({ lastMessageAt: -1 })
+      .limit(limit)
+      .skip(offset)
+      .toArray();
+  }
+
+  static async getByClient(clientId, limit = 50, offset = 0) {
+    return await this.getAllByClient(clientId, limit, offset);
+  }
+
+  static async getHistoryByClient(phoneNumber, clientId) {
+    const conversation = await this.findByPhoneAndClient(phoneNumber, clientId);
+    if (!conversation) {
+      return { conversation: null, messages: [] };
+    }
+
+    const messages = database.getMessagesCollection();
+    const messageHistory = await messages
+      .find({ 
+        phoneNumber,
+        clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+      })
+      .sort({ timestamp: 1 })
+      .toArray();
+
+    return {
+      conversation,
+      messages: messageHistory
+    };
+  }
+
+  static async markAsRead(phoneNumber, clientId) {
+    const conversations = database.getConversationsCollection();
+    
+    return await conversations.updateOne(
+      { 
+        phoneNumber,
+        clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+      },
+      {
+        $set: {
+          unreadCount: 0,
+          updatedAt: new Date()
+        }
+      }
+    );
+  }
+
+  static async search(query) {
+    const conversations = database.getConversationsCollection();
+    
+    return await conversations
+      .find({
+        $or: [
+          { contactName: { $regex: query, $options: 'i' } },
+          { phoneNumber: { $regex: query, $options: 'i' } }
+        ],
+        isActive: true
+      })
+      .sort({ lastMessageAt: -1 })
+      .limit(20)
+      .toArray();
+  }
 }
 
 module.exports = Conversation;

@@ -181,6 +181,141 @@ class ConversationService {
     // Si no, usar la configuración del cliente
     return client.settings.autoResponse;
   }
+
+  /**
+   * Obtener todas las conversaciones (legacy - sin cliente específico)
+   */
+  static async getAllConversations(limit = 50, offset = 0) {
+    return await Conversation.getAll(limit, offset);
+  }
+
+  /**
+   * Obtener todas las conversaciones de un cliente específico
+   */
+  static async getAllConversationsByClient(clientId, limit = 50, offset = 0) {
+    return await Conversation.getByClient(clientId, limit, offset);
+  }
+
+  /**
+   * Obtener historial de conversación (con soporte multi-cliente)
+   */
+  static async getConversationHistory(phoneNumber, clientId = null) {
+    if (clientId) {
+      return await Conversation.getHistoryByClient(phoneNumber, clientId);
+    } else {
+      // Legacy: buscar en MarketTech por defecto
+      const marketTech = await Client.findByTwilioNumber('+14155238886');
+      if (marketTech) {
+        return await Conversation.getHistoryByClient(phoneNumber, marketTech._id);
+      }
+      throw new Error('No se encontró cliente para obtener historial');
+    }
+  }
+
+  /**
+   * Marcar conversación como leída (con soporte multi-cliente)
+   */
+  static async markAsRead(phoneNumber, clientId = null) {
+    if (clientId) {
+      return await Conversation.markAsRead(phoneNumber, clientId);
+    } else {
+      // Legacy: usar MarketTech por defecto
+      const marketTech = await Client.findByTwilioNumber('+14155238886');
+      if (marketTech) {
+        return await Conversation.markAsRead(phoneNumber, marketTech._id);
+      }
+      throw new Error('No se encontró cliente para marcar como leído');
+    }
+  }
+
+  /**
+   * Buscar conversaciones (legacy)
+   */
+  static async searchConversations(query) {
+    return await Conversation.search(query);
+  }
+
+  /**
+   * Obtener estadísticas globales (legacy)
+   */
+  static async getStats() {
+    const conversations = await Conversation.getAll(1000, 0);
+    const messages = await Message.getAll(1000, 0);
+    
+    return {
+      conversations: {
+        total: conversations.length,
+        unread: conversations.filter(c => c.unreadCount > 0).length,
+        read: conversations.filter(c => c.unreadCount === 0).length
+      },
+      messages: {
+        total: messages.length,
+        sent: messages.filter(m => m.type === 'sent').length,
+        received: messages.filter(m => m.type === 'received').length,
+        aiGenerated: messages.filter(m => m.type === 'ai-auto').length
+      },
+      timestamp: new Date()
+    };
+  }
+
+  /**
+   * Obtener estadísticas por cliente específico
+   */
+  static async getStatsByClient(clientId) {
+    const conversations = await Conversation.getByClient(clientId, 1000, 0);
+    const messages = await Message.getByClient(clientId, 1000, 0);
+    
+    return {
+      conversations: {
+        total: conversations.length,
+        unread: conversations.filter(c => c.unreadCount > 0).length,
+        read: conversations.filter(c => c.unreadCount === 0).length
+      },
+      messages: {
+        total: messages.length,
+        sent: messages.filter(m => m.type === 'sent').length,
+        received: messages.filter(m => m.type === 'received').length,
+        aiGenerated: messages.filter(m => m.type === 'ai-auto').length
+      },
+      activeConversations: conversations.filter(c => c.isActive).length,
+      todayConversations: conversations.filter(c => {
+        const today = new Date();
+        const messageDate = new Date(c.lastMessageAt);
+        return messageDate.toDateString() === today.toDateString();
+      }).length,
+      timestamp: new Date()
+    };
+  }
+
+  /**
+   * Guardar mensaje saliente (respuesta del sistema)
+   */
+  static async saveOutgoingMessage(phoneNumber, clientId, messageText, type = 'sent') {
+    try {
+      // Crear mensaje saliente
+      const messageData = {
+        phoneNumber,
+        clientId,
+        text: messageText,
+        type, // 'sent', 'ai-auto', 'ai-assisted'
+        isAiGenerated: type.startsWith('ai')
+      };
+      
+      const message = await Message.create(messageData);
+      
+      // Actualizar conversación con último mensaje
+      await Conversation.updateLastMessage(phoneNumber, clientId, {
+        text: messageText,
+        type,
+        timestamp: new Date()
+      });
+      
+      return message;
+    } catch (error) {
+      console.error('Error guardando mensaje saliente:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = ConversationService;

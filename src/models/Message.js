@@ -181,6 +181,29 @@ class Message {
       .limit(limit)
       .toArray();
   }
+
+  // Métodos adicionales para soporte multi-cliente
+  static async getAll(limit = 1000, offset = 0) {
+    const messages = database.getMessagesCollection();
+    return await messages
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .skip(offset)
+      .toArray();
+  }
+
+  static async getByClient(clientId, limit = 1000, offset = 0) {
+    const messages = database.getMessagesCollection();
+    return await messages
+      .find({ 
+        clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+      })
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .skip(offset)
+      .toArray();
+  }
 }
 
 module.exports = Message;

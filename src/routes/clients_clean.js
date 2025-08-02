@@ -123,7 +123,7 @@ router.get('/:clientId/conversations', async (req, res) => {
     const { clientId } = req.params;
     const { limit = 10, offset = 0 } = req.query;
     
-    const conversations = await ConversationService.getAllConversationsByClient(
+    const conversations = await ConversationService.getAllConversations(
       clientId, 
       parseInt(limit), 
       parseInt(offset)
@@ -158,95 +158,6 @@ router.get('/:clientId/conversations/:phoneNumber/history', async (req, res) => 
     res.status(500).json({
       success: false,
       error: error.message
-    });
-  }
-});
-
-// ========== CONTROL DE IA POR CLIENTE ==========
-
-// Activar/Desactivar IA para un cliente
-router.post('/:clientId/toggle-ai', async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    const { enabled } = req.body;
-
-    if (typeof enabled !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: 'El campo "enabled" debe ser true o false'
-      });
-    }
-
-    const result = await Client.toggleAI(clientId, enabled);
-    
-    res.json({
-      success: true,
-      message: `IA ${enabled ? 'activada' : 'desactivada'} para el cliente`,
-      data: { enabled }
-    });
-  } catch (error) {
-    console.error('Error toggleando IA:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error interno del servidor'
-    });
-  }
-});
-
-// Activar/Desactivar auto-respuesta para un cliente
-router.post('/:clientId/toggle-auto-response', async (req, res) => {
-  try {
-    const { clientId } = req.params;
-    const { enabled } = req.body;
-
-    if (typeof enabled !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: 'El campo "enabled" debe ser true o false'
-      });
-    }
-
-    const result = await Client.toggleAutoResponse(clientId, enabled);
-    
-    res.json({
-      success: true,
-      message: `Auto-respuesta ${enabled ? 'activada' : 'desactivada'} para el cliente`,
-      data: { enabled }
-    });
-  } catch (error) {
-    console.error('Error toggleando auto-respuesta:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error interno del servidor'
-    });
-  }
-});
-
-// Control de IA por conversación específica
-router.post('/:clientId/conversations/:phoneNumber/toggle-ai', async (req, res) => {
-  try {
-    const { clientId, phoneNumber } = req.params;
-    const { enabled } = req.body;
-
-    if (typeof enabled !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: 'El campo "enabled" debe ser true o false'
-      });
-    }
-
-    await ConversationService.toggleConversationAI(phoneNumber, clientId, enabled);
-    
-    res.json({
-      success: true,
-      message: `IA ${enabled ? 'activada' : 'desactivada'} para la conversación`,
-      data: { phoneNumber, enabled }
-    });
-  } catch (error) {
-    console.error('Error toggleando IA por conversación:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Error interno del servidor'
     });
   }
 });
