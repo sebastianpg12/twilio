@@ -53,6 +53,10 @@ class Database {
     return this.getDb().collection('clients');
   }
 
+  getUsersCollection() {
+    return this.getDb().collection('users');
+  }
+
   isConnected() {
     return this.client && this.db;
   }

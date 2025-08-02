@@ -8,15 +8,17 @@ class Client {
     
     const client = {
       name: clientData.name,
+      business: clientData.business || null,
       phoneNumber: clientData.phoneNumber,
+      email: clientData.email || null,
       twilioSid: clientData.twilioSid || process.env.TWILIO_SID,
       twilioAuthToken: clientData.twilioAuthToken || process.env.TWILIO_AUTH_TOKEN,
       twilioPhoneNumber: clientData.twilioPhoneNumber,
       openaiApiKey: clientData.openaiApiKey || process.env.OPENAI_API_KEY,
       settings: {
-        aiEnabled: true, // IA activada por defecto
-        autoResponse: true,
-        welcomeMessage: clientData.welcomeMessage || "¡Hola! Gracias por contactarnos. ¿En qué podemos ayudarte?",
+        aiEnabled: clientData.aiEnabled !== undefined ? clientData.aiEnabled : true,
+        autoResponse: clientData.autoResponse !== undefined ? clientData.autoResponse : true,
+        welcomeMessage: clientData.welcomeMessage || `¡Hola! Somos ${clientData.name}. Gracias por contactarnos. ¿En qué podemos ayudarte?`,
         businessHours: {
           enabled: false,
           start: "09:00",
@@ -25,7 +27,7 @@ class Client {
         }
       },
       subscription: {
-        plan: "basic",
+        plan: clientData.plan || "basic",
         status: "active",
         startDate: new Date(),
         endDate: null
@@ -36,7 +38,34 @@ class Client {
     };
 
     const result = await clients.insertOne(client);
-    return { ...client, _id: result.insertedId };
+    const newClient = { ...client, _id: result.insertedId };
+    
+    // Crear usuario por defecto para el cliente
+    try {
+      const User = require('./User');
+      const defaultUserEmail = `admin@${clientData.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+      
+      const defaultUser = await User.create({
+        email: defaultUserEmail,
+        name: `Administrador ${clientData.name}`,
+        clientId: newClient._id,
+        role: 'admin',
+        permissions: ['read', 'write', 'delete', 'admin'],
+        firstName: 'Administrador',
+        lastName: clientData.name,
+        phoneNumber: clientData.phoneNumber,
+        department: 'Administración',
+        position: 'Administrador Principal',
+        authProvider: 'email'
+      });
+      
+      console.log(`👤 Usuario por defecto creado para ${clientData.name}: ${defaultUserEmail}`);
+      newClient.defaultUser = defaultUser;
+    } catch (userError) {
+      console.warn(`⚠️  No se pudo crear usuario por defecto para ${clientData.name}:`, userError.message);
+    }
+    
+    return newClient;
   }
 
   static async findById(clientId) {
@@ -160,16 +189,39 @@ class Client {
       
       const marketTechClient = await this.create({
         name: 'MarketTech',
+        business: 'Marketing y Tecnología',
         phoneNumber: '+14155238886',
+        email: 'info@markettech.com',
         twilioPhoneNumber: '+14155238886',
-        welcomeMessage: "¡Hola! Somos MarketTech. Gracias por contactarnos. ¿En qué podemos ayudarte hoy?"
+        welcomeMessage: "¡Hola! Somos MarketTech. Gracias por contactarnos. ¿En qué podemos ayudarte hoy?",
+        plan: 'enterprise'
       });
       
       console.log('✅ Cliente MarketTech creado con ID:', marketTechClient._id);
+      
+      // Asegurarse de que el usuario por defecto se creó
+      if (marketTechClient.defaultUser) {
+        console.log('✅ Usuario por defecto creado:', marketTechClient.defaultUser.email);
+      }
+      
       return marketTechClient;
     }
     
     console.log('✅ Cliente MarketTech ya existe');
+    
+    // Verificar si ya tiene usuario por defecto
+    try {
+      const User = require('./User');
+      const existingUser = await User.findByEmail('admin@markettech.com');
+      
+      if (!existingUser) {
+        console.log('👤 Creando usuario por defecto para MarketTech existente');
+        await User.createDefaultUserForMarketTech(existingClient._id);
+      }
+    } catch (error) {
+      console.warn('⚠️  Error verificando usuario por defecto para MarketTech:', error.message);
+    }
+    
     return existingClient;
   }
 }
