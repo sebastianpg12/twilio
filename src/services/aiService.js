@@ -1,6 +1,7 @@
 // ia.js
 require('dotenv').config();
 const OpenAI = require('openai');
+const KnowledgeBase = require('../models/KnowledgeBase');
 
 // Configurar cliente de OpenAI
 const openai = new OpenAI({
@@ -77,33 +78,159 @@ async function responderMensajeWhatsApp(mensajeUsuario, numeroTelefono = '') {
 }
 
 /**
- * Función para generar respuestas automáticas basadas en palabras clave
+ * Función para generar respuestas automáticas basadas en palabras clave y base de conocimiento
  * @param {string} mensaje - El mensaje recibido
+ * @param {string} numeroTelefono - Número de teléfono del usuario
+ * @param {Object} client - Objeto del cliente con sus configuraciones
  * @returns {Promise<string>} - Respuesta generada
  */
-async function respuestaInteligente(mensaje) {
+async function respuestaInteligente(mensaje, numeroTelefono = '', client = null) {
   try {
-    // Detectar intención del mensaje
-    let contexto = "Eres un asistente de atención al cliente. ";
-    
-    if (mensaje.toLowerCase().includes('cita') || mensaje.toLowerCase().includes('turno')) {
-      contexto += "El usuario está preguntando sobre citas o turnos. ";
-    } else if (mensaje.toLowerCase().includes('precio') || mensaje.toLowerCase().includes('costo')) {
-      contexto += "El usuario está preguntando sobre precios. ";
-    } else if (mensaje.toLowerCase().includes('horario')) {
-      contexto += "El usuario está preguntando sobre horarios. ";
+    let contextoBase = "";
+    let knowledgeContext = "";
+
+    // Si tenemos un cliente, obtener su base de conocimiento
+    if (client && client._id) {
+      try {
+        // Buscar información relevante en la base de conocimiento
+        const relevantKnowledge = await KnowledgeBase.searchKnowledge(
+          client._id.toString(), 
+          mensaje, 
+          3 // Obtener máximo 3 resultados relevantes
+        );
+
+        if (relevantKnowledge && relevantKnowledge.length > 0) {
+          knowledgeContext = "\n\nINFORMACIÓN DE LA EMPRESA:\n";
+          relevantKnowledge.forEach((entry, index) => {
+            knowledgeContext += `${index + 1}. ${entry.title}: ${entry.content}\n`;
+          });
+          
+          contextoBase += `Eres el asistente virtual de ${client.name} (${client.business}). `;
+          contextoBase += "Usa ÚNICAMENTE la información proporcionada de la empresa para responder. ";
+          contextoBase += "Si no tienes información específica, indica amablemente que pueden contactar a la empresa para más detalles. ";
+        } else {
+          contextoBase += `Eres el asistente virtual de ${client.name} (${client.business}). `;
+          contextoBase += "Responde de manera amable y sugiere que el usuario contacte a la empresa para información específica. ";
+        }
+
+        // Agregar información básica del cliente si está disponible
+        if (client.welcomeMessage) {
+          contextoBase += `Mensaje de bienvenida de la empresa: "${client.welcomeMessage}". `;
+        }
+
+        if (client.email) {
+          contextoBase += `Email de contacto: ${client.email}. `;
+        }
+
+        if (client.phoneNumber && client.phoneNumber !== client.twilioPhoneNumber) {
+          contextoBase += `Teléfono de contacto: ${client.phoneNumber}. `;
+        }
+
+      } catch (knowledgeError) {
+        console.error('❌ Error obteniendo conocimiento:', knowledgeError);
+        contextoBase += `Eres el asistente virtual de ${client.name}. `;
+      }
+    } else {
+      contextoBase = "Eres un asistente de atención al cliente amable y profesional. ";
     }
+
+    // Detectar intención del mensaje para mejorar el contexto
+    const mensajeMinuscula = mensaje.toLowerCase();
     
-    const respuesta = await preguntarIA(mensaje, contexto);
+    if (mensajeMinuscula.includes('precio') || mensajeMinuscula.includes('costo') || mensajeMinuscula.includes('tarifa')) {
+      contextoBase += "El usuario está preguntando sobre precios o costos. ";
+    } else if (mensajeMinuscula.includes('horario') || mensajeMinuscula.includes('hora') || mensajeMinuscula.includes('abierto')) {
+      contextoBase += "El usuario está preguntando sobre horarios de atención. ";
+    } else if (mensajeMinuscula.includes('producto') || mensajeMinuscula.includes('servicio')) {
+      contextoBase += "El usuario está preguntando sobre productos o servicios. ";
+    } else if (mensajeMinuscula.includes('contacto') || mensajeMinuscula.includes('teléfono') || mensajeMinuscula.includes('email')) {
+      contextoBase += "El usuario está pidiendo información de contacto. ";
+    } else if (mensajeMinuscula.includes('ubicación') || mensajeMinuscula.includes('dirección') || mensajeMinuscula.includes('donde')) {
+      contextoBase += "El usuario está preguntando sobre la ubicación. ";
+    }
+
+    // Construir el contexto completo
+    const contextoCompleto = contextoBase + knowledgeContext;
+
+    const respuesta = await preguntarIA(mensaje, contextoCompleto);
+    
     return respuesta;
   } catch (error) {
-    console.error('Error en respuesta inteligente:', error);
-    return 'Gracias por tu mensaje. Te responderemos pronto.';
+    console.error('❌ Error en respuesta inteligente:', error);
+    
+    // Respuesta de fallback personalizada por cliente
+    if (client && client.name) {
+      return `¡Hola! Soy el asistente virtual de ${client.name}. Gracias por tu mensaje, te responderemos pronto. 😊`;
+    }
+    
+    return 'Gracias por tu mensaje. Te responderemos pronto. 😊';
   }
+}
+
+/**
+ * Función para obtener el contexto completo de conocimiento de un cliente
+ * @param {string} clientId - ID del cliente
+ * @returns {Promise<string>} - Contexto formateado para la IA
+ */
+async function getClientKnowledgeContext(clientId) {
+  try {
+    const knowledge = await KnowledgeBase.getActiveKnowledgeForBot(clientId);
+    
+    if (!knowledge || knowledge.length === 0) {
+      return "";
+    }
+
+    let context = "\n\nBASE DE CONOCIMIENTO DE LA EMPRESA:\n";
+    
+    // Agrupar por categorías para mejor organización
+    const groupedKnowledge = knowledge.reduce((acc, entry) => {
+      if (!acc[entry.category]) {
+        acc[entry.category] = [];
+      }
+      acc[entry.category].push(entry);
+      return acc;
+    }, {});
+
+    // Formatear por categorías
+    Object.keys(groupedKnowledge).forEach(category => {
+      context += `\n📋 ${category.toUpperCase()}:\n`;
+      groupedKnowledge[category].forEach(entry => {
+        context += `• ${entry.title}: ${entry.content}\n`;
+      });
+    });
+
+    return context;
+  } catch (error) {
+    console.error('❌ Error obteniendo contexto de conocimiento:', error);
+    return "";
+  }
+}
+
+/**
+ * Función para validar si un mensaje necesita conocimiento específico
+ * @param {string} mensaje - Mensaje del usuario
+ * @returns {boolean} - True si necesita conocimiento específico
+ */
+function needsSpecificKnowledge(mensaje) {
+  const keywordsNeedingKnowledge = [
+    'precio', 'costo', 'tarifa', 'cuanto', 'valor',
+    'producto', 'servicio', 'oferta', 'promocion',
+    'horario', 'abierto', 'cerrado', 'atencion',
+    'contacto', 'telefono', 'email', 'direccion',
+    'ubicacion', 'donde', 'como llegar',
+    'informacion', 'detalles', 'caracteristicas'
+  ];
+
+  const mensajeMinuscula = mensaje.toLowerCase();
+  return keywordsNeedingKnowledge.some(keyword => 
+    mensajeMinuscula.includes(keyword)
+  );
 }
 
 module.exports = {
   preguntarIA,
   responderMensajeWhatsApp,
-  respuestaInteligente
+  respuestaInteligente,
+  getClientKnowledgeContext,
+  needsSpecificKnowledge
 };

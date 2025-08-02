@@ -21,9 +21,16 @@ Este sistema permite que múltiples clientes tengan sus propios dashboards compl
 2. [Gestión de Clientes (Admin)](#gestión-de-clientes-admin)
 3. [Dashboard del Cliente](#dashboard-del-cliente)
 4. [Conversaciones](#conversaciones)
-5. [Mensajería](#mensajería)
+5. [Mensajería](#mensaje7. **ClientForm** - Formulario de creación/edición de clientes
+8. **BulkActions** - Acciones en lote
+9. **RealTimeNotifications** - Notificaciones en tiempo real
+10. **KnowledgeManager** - Gestión de base de conocimiento
+11. **KnowledgeEntryForm** - Formulario de entradas
+12. **CategoryFilter** - Filtros por categoría
+13. **KnowledgeSearch** - Búsqueda en conocimiento)
 6. [Control de IA](#control-de-ia)
-7. [Webhooks](#webhooks)
+7. [Base de Conocimiento](#base-de-conocimiento)
+8. [Webhooks](#webhooks)
 
 ---
 
@@ -525,7 +532,184 @@ const aiStatus = await fetch('/api/ia-control/status/+14155238886/+573001234567'
 
 ---
 
-## 🔔 Webhooks
+## � Base de Conocimiento
+
+> **Cada cliente tiene su propia base de conocimiento independiente**
+
+### Crear Entrada de Conocimiento
+**Endpoint:** `POST /api/knowledge/client/:clientId`
+```javascript
+// Ejemplo de uso
+const newEntry = await fetch('/api/knowledge/client/688da23c21e39b848cb30560', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: "Horarios de Atención",
+    content: "Lunes a viernes 9:00 AM - 6:00 PM, sábados 9:00 AM - 2:00 PM",
+    category: "horarios",
+    keywords: ["horario", "atencion", "disponible"],
+    tags: ["servicio-cliente"],
+    priority: 9
+  })
+}).then(r => r.json());
+
+// Respuesta esperada
+{
+  "success": true,
+  "message": "Entrada de conocimiento \"Horarios de Atención\" creada exitosamente",
+  "data": {
+    "_id": "688da240c9628c84329a3adb",
+    "clientId": "688da23c21e39b848cb30560",
+    "title": "Horarios de Atención",
+    "category": "horarios",
+    "priority": 9,
+    "isActive": true,
+    "createdAt": "2025-08-02T07:30:00.000Z"
+  }
+}
+```
+
+**Categorías disponibles:** `general`, `productos`, `servicios`, `precios`, `faq`, `politicas`, `contacto`, `horarios`, `promociones`, `otros`
+
+### Listar Entradas del Cliente
+**Endpoint:** `GET /api/knowledge/client/:clientId`  
+**Query Params:** `limit`, `offset`, `category`, `search`
+```javascript
+// Ejemplo de uso
+const entries = await fetch('/api/knowledge/client/688da23c21e39b848cb30560?category=precios&limit=10').then(r => r.json());
+
+// Respuesta esperada
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "688da240c9628c84329a3adb",
+      "title": "Lista de Precios",
+      "content": "Consultoría básica: $50/hora...",
+      "category": "precios",
+      "priority": 10,
+      "createdAt": "2025-08-02T07:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "limit": 10,
+    "offset": 0,
+    "hasMore": false
+  }
+}
+```
+
+### Actualizar Entrada
+**Endpoint:** `PUT /api/knowledge/entry/:entryId`
+```javascript
+// Ejemplo de uso
+const updatedEntry = await fetch('/api/knowledge/entry/688da240c9628c84329a3adb', {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    content: "Horarios actualizados: Lunes a viernes 8:00 AM - 7:00 PM",
+    priority: 10
+  })
+}).then(r => r.json());
+```
+
+### Eliminar Entrada
+**Endpoint:** `DELETE /api/knowledge/entry/:entryId`
+```javascript
+// Desactivar entrada (soft delete)
+const deleteEntry = await fetch('/api/knowledge/entry/688da240c9628c84329a3adb', {
+  method: 'DELETE'
+}).then(r => r.json());
+
+// Eliminar permanentemente
+const permanentDelete = await fetch('/api/knowledge/entry/688da240c9628c84329a3adb?permanent=true', {
+  method: 'DELETE'
+}).then(r => r.json());
+```
+
+### Buscar en Base de Conocimiento
+**Endpoint:** `GET /api/knowledge/client/:clientId/search`
+```javascript
+// Ejemplo de uso
+const searchResults = await fetch('/api/knowledge/client/688da23c21e39b848cb30560/search?q=precios').then(r => r.json());
+
+// Respuesta esperada
+{
+  "success": true,
+  "data": {
+    "query": "precios",
+    "results": [
+      {
+        "id": "688da240c9628c84329a3adb",
+        "title": "Lista de Precios",
+        "content": "Consultoría básica: $50/hora...",
+        "relevanceScore": 5.5
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+### Estadísticas de Conocimiento
+**Endpoint:** `GET /api/knowledge/client/:clientId/stats`
+```javascript
+// Ejemplo de uso
+const stats = await fetch('/api/knowledge/client/688da23c21e39b848cb30560/stats').then(r => r.json());
+
+// Respuesta esperada
+{
+  "success": true,
+  "data": {
+    "total": 15,
+    "active": 12,
+    "inactive": 3,
+    "categories": ["precios", "servicios", "horarios", "faq", "contacto"]
+  }
+}
+```
+
+### Acciones en Lote
+**Endpoint:** `POST /api/knowledge/client/:clientId/bulk-actions`
+```javascript
+// Ejemplo de uso - Cambiar prioridad de múltiples entradas
+const bulkAction = await fetch('/api/knowledge/client/688da23c21e39b848cb30560/bulk-actions', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    action: "update-priority",
+    entryIds: ["688da240c9628c84329a3adb", "688da241c9628c84329a3adc"],
+    settings: { priority: 8 }
+  })
+}).then(r => r.json());
+
+// Acciones disponibles:
+// - "activate": Activar entradas
+// - "deactivate": Desactivar entradas
+// - "update-category": Cambiar categoría
+// - "update-priority": Cambiar prioridad
+// - "delete-permanent": Eliminar permanentemente
+```
+
+### Integración Automática con IA BOT
+
+La base de conocimiento se integra automáticamente con el BOT de IA:
+
+1. **Usuario pregunta:** "¿Cuáles son sus precios?"
+2. **Sistema busca** en la base de conocimiento del cliente
+3. **IA genera respuesta** usando la información específica encontrada
+4. **Respuesta personalizada** se envía al usuario
+
+```javascript
+// El BOT automáticamente usa el conocimiento del cliente
+// No requiere configuración adicional
+// Funciona con cualquier mensaje entrante de WhatsApp
+```
+
+---
+
+## �🔔 Webhooks
 
 ### Webhook Principal de Twilio
 **Endpoint:** `POST /webhook`  
@@ -607,6 +791,15 @@ const aiStatus = await fetch('/api/ia-control/status/+14155238886/+573001234567'
    - Templates de mensajes
    - Historial de mensajes enviados
 
+5. **Base de Conocimiento** (`/client/:twilioNumber/knowledge`)
+   - Gestión de entradas de conocimiento
+   - Categorización y búsqueda
+   - Configuración del BOT de IA
+   - **Subpáginas:**
+     - `/client/:twilioNumber/knowledge/entries` - Lista de entradas
+     - `/client/:twilioNumber/knowledge/new` - Crear entrada
+     - `/client/:twilioNumber/knowledge/categories` - Gestión por categorías
+
 ---
 
 ## 📋 **Componentes Frontend Recomendados**
@@ -677,9 +870,11 @@ const aiStatus = await fetch('/api/ia-control/status/+14155238886/+573001234567'
 
 1. **Separación de Clientes:** Cada cliente ve únicamente sus propias conversaciones
 2. **IA Granular:** Se puede controlar IA a nivel cliente o conversación individual
-3. **Tiempo Real:** Sistema diseñado para actualizaciones en tiempo real
-4. **Escalabilidad:** Arquitectura preparada para múltiples clientes
-5. **Seguridad:** Admin panel protegido, clientes identificados por número Twilio
+3. **Base de Conocimiento Independiente:** Cada cliente tiene su propia base de conocimiento que alimenta su BOT de IA
+4. **Tiempo Real:** Sistema diseñado para actualizaciones en tiempo real
+5. **Escalabilidad:** Arquitectura preparada para múltiples clientes
+6. **Seguridad:** Admin panel protegido, clientes identificados por número Twilio
+7. **BOT Inteligente:** Respuestas automáticas contextuales basadas en el conocimiento específico de cada cliente
 
 ---
 

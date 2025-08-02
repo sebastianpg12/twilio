@@ -57,6 +57,10 @@ class Database {
     return this.getDb().collection('users');
   }
 
+  getKnowledgeCollection() {
+    return this.getDb().collection('knowledge_entries');
+  }
+
   isConnected() {
     return this.client && this.db;
   }

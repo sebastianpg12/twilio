@@ -36,6 +36,7 @@ const dashboardRoutes = require('./src/routes/dashboard');
 const setupRoutes = require('./src/routes/setup');
 const adminRoutes = require('./src/routes/admin');
 const usersRoutes = require('./src/routes/users');
+const knowledgeRoutes = require('./src/routes/knowledge');
 
 const app = express();
 
@@ -166,6 +167,9 @@ app.use('/api/admin', adminRoutes);
 
 // Rutas de usuarios
 app.use('/api/users', usersRoutes);
+
+// Rutas de base de conocimiento
+app.use('/api/knowledge', knowledgeRoutes);
 
 // Rutas de setup y administración
 app.use('/api/setup', setupRoutes);
