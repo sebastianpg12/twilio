@@ -181,7 +181,7 @@ app.post('/webhook', async (req, res) => {
 // ========== RUTAS API ==========
 
 // Rutas de administración general
-app.use('/api/admin', adminRoutes);
+// app.use('/api/admin', adminRoutes); // TEMP: Comentado para debug
 
 // Rutas de setup y administración
 app.use('/api/setup', setupRoutes);
