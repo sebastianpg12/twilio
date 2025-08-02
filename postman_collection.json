@@ -1,0 +1,800 @@
+{
+  "info": {
+    "name": "WhatsApp Business Multi-Client API",
+    "description": "Colección completa para probar el sistema multi-cliente de WhatsApp Business con IA. Incluye MarketTech como cliente ejemplo.",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "description": "URL base del servidor (cambiar a producción cuando sea necesario)"
+    },
+    {
+      "key": "admin_key",
+      "value": "admin123",
+      "description": "Clave de administrador para rutas protegidas"
+    },
+    {
+      "key": "client_id",
+      "value": "",
+      "description": "ID del cliente MarketTech (se obtiene automáticamente)"
+    },
+    {
+      "key": "phone_number",
+      "value": "whatsapp:+573001234567",
+      "description": "Número de teléfono de prueba para conversaciones"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Setup & Inicialización",
+      "description": "Endpoints para inicializar y verificar el sistema",
+      "item": [
+        {
+          "name": "Estado del Servidor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Verificar que el servidor esté funcionando correctamente"
+          },
+          "response": [
+            {
+              "name": "Servidor OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "health"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"status\": \"OK\",\n  \"timestamp\": \"2025-08-01T22:00:00.000Z\",\n  \"environment\": \"development\",\n  \"database\": \"connected\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Obtener MarketTech (Cliente por Defecto)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (responseCode.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.success && jsonData.data) {",
+                  "        pm.collectionVariables.set('client_id', jsonData.data._id);",
+                  "        console.log('Client ID guardado:', jsonData.data._id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/setup/markettech",
+              "host": ["{{base_url}}"],
+              "path": ["api", "setup", "markettech"]
+            },
+            "description": "Obtener información del cliente MarketTech y guardar su ID automáticamente"
+          },
+          "response": [
+            {
+              "name": "MarketTech Info",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/setup/markettech",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "setup", "markettech"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"_id\": \"66ac1234567890abcdef1234\",\n    \"name\": \"MarketTech\",\n    \"phoneNumber\": \"+14155238886\",\n    \"twilioPhoneNumber\": \"+14155238886\",\n    \"settings\": {\n      \"aiEnabled\": true,\n      \"autoResponse\": true,\n      \"welcomeMessage\": \"¡Hola! Somos MarketTech. Gracias por contactarnos. ¿En qué podemos ayudarte hoy?\"\n    },\n    \"subscription\": {\n      \"plan\": \"basic\",\n      \"status\": \"active\"\n    },\n    \"isActive\": true\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Inicializar Sistema",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forceReset\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/setup/initialize",
+              "host": ["{{base_url}}"],
+              "path": ["api", "setup", "initialize"]
+            },
+            "description": "Inicializar el sistema multi-cliente (crear MarketTech si no existe)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Gestión de Clientes",
+      "description": "Endpoints para manejar clientes en el sistema multi-cliente",
+      "item": [
+        {
+          "name": "Listar Todos los Clientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/clients",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients"]
+            },
+            "description": "Obtener lista de todos los clientes registrados"
+          },
+          "response": [
+            {
+              "name": "Lista de Clientes",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/clients",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "clients"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"_id\": \"66ac1234567890abcdef1234\",\n      \"name\": \"MarketTech\",\n      \"phoneNumber\": \"+14155238886\",\n      \"twilioPhoneNumber\": \"+14155238886\",\n      \"settings\": {\n        \"aiEnabled\": true,\n        \"autoResponse\": true,\n        \"welcomeMessage\": \"¡Hola! Somos MarketTech. Gracias por contactarnos. ¿En qué podemos ayudarte hoy?\",\n        \"businessHours\": {\n          \"enabled\": false,\n          \"start\": \"09:00\",\n          \"end\": \"18:00\",\n          \"timezone\": \"America/Bogota\"\n        }\n      },\n      \"subscription\": {\n        \"plan\": \"basic\",\n        \"status\": \"active\"\n      },\n      \"createdAt\": \"2025-08-01T21:08:24.000Z\",\n      \"isActive\": true\n    }\n  ],\n  \"count\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Obtener Cliente Específico (MarketTech)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}"]
+            },
+            "description": "Obtener información detallada de MarketTech"
+          }
+        },
+        {
+          "name": "Crear Nuevo Cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TechSolutions\",\n  \"phoneNumber\": \"+14155238887\",\n  \"twilioPhoneNumber\": \"+14155238887\",\n  \"welcomeMessage\": \"¡Hola! Somos TechSolutions. ¿Cómo podemos ayudarte?\",\n  \"twilioSid\": \"ACxxxxxxxxxxxxxxxxxxxx\",\n  \"twilioAuthToken\": \"your_auth_token_here\",\n  \"openaiApiKey\": \"sk-xxxxxxxxxxxxxxxxxxxx\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/clients",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients"]
+            },
+            "description": "Crear un nuevo cliente en el sistema"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Conversaciones de MarketTech",
+      "description": "Endpoints específicos para las conversaciones de MarketTech",
+      "item": [
+        {
+          "name": "Conversaciones de MarketTech",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/conversations?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "conversations"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Número máximo de conversaciones a retornar"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Offset para paginación"
+                }
+              ]
+            },
+            "description": "Obtener todas las conversaciones del cliente MarketTech"
+          },
+          "response": [
+            {
+              "name": "Conversaciones MarketTech",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/clients/{{client_id}}/conversations",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "clients", "{{client_id}}", "conversations"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"_id\": \"66ac5678901234567890abcd\",\n      \"phoneNumber\": \"whatsapp:+573001234567\",\n      \"clientId\": \"66ac1234567890abcdef1234\",\n      \"contactName\": null,\n      \"lastMessageAt\": \"2025-08-01T21:30:00.000Z\",\n      \"unreadCount\": 2,\n      \"isActive\": true,\n      \"aiSettings\": {\n        \"enabled\": null,\n        \"autoResponse\": null\n      },\n      \"lastMessage\": {\n        \"text\": \"Hola, necesito información sobre sus servicios\",\n        \"type\": \"received\",\n        \"timestamp\": \"2025-08-01T21:30:00.000Z\"\n      }\n    }\n  ],\n  \"count\": 1,\n  \"pagination\": {\n    \"limit\": 50,\n    \"offset\": 0\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Historial de Conversación Específica",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{phone_number}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{phone_number}}"]
+            },
+            "description": "Obtener historial completo de mensajes de una conversación específica"
+          },
+          "response": [
+            {
+              "name": "Historial de Conversación",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/conversations/whatsapp:+573001234567",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "conversations", "whatsapp:+573001234567"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"conversation\": {\n      \"_id\": \"66ac5678901234567890abcd\",\n      \"phoneNumber\": \"whatsapp:+573001234567\",\n      \"clientId\": \"66ac1234567890abcdef1234\",\n      \"lastMessageAt\": \"2025-08-01T21:30:00.000Z\",\n      \"unreadCount\": 0\n    },\n    \"messages\": [\n      {\n        \"_id\": \"66ac9999888877776666aaaa\",\n        \"phoneNumber\": \"whatsapp:+573001234567\",\n        \"clientId\": \"66ac1234567890abcdef1234\",\n        \"text\": \"Hola, necesito información sobre sus servicios\",\n        \"type\": \"received\",\n        \"timestamp\": \"2025-08-01T21:30:00.000Z\",\n        \"status\": \"delivered\"\n      },\n      {\n        \"_id\": \"66ac9999888877776666bbbb\",\n        \"phoneNumber\": \"whatsapp:+573001234567\",\n        \"clientId\": \"66ac1234567890abcdef1234\",\n        \"text\": \"¡Hola! Somos MarketTech. Gracias por contactarnos. Ofrecemos soluciones de marketing digital personalizadas. ¿En qué área específica te podemos ayudar?\",\n        \"type\": \"ai-auto\",\n        \"timestamp\": \"2025-08-01T21:30:15.000Z\",\n        \"status\": \"delivered\",\n        \"metadata\": {\n          \"isAiGenerated\": true\n        }\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Marcar Conversación como Leída",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/conversations/{{phone_number}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "conversations", "{{phone_number}}", "read"]
+            },
+            "description": "Marcar una conversación específica como leída"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Dashboard MarketTech",
+      "description": "Endpoints del dashboard específico para MarketTech",
+      "item": [
+        {
+          "name": "Dashboard Completo de MarketTech",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "dashboard"]
+            },
+            "description": "Obtener dashboard completo con estadísticas y conversaciones recientes de MarketTech"
+          },
+          "response": [
+            {
+              "name": "Dashboard MarketTech",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/clients/{{client_id}}/dashboard",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "clients", "{{client_id}}", "dashboard"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"client\": {\n      \"id\": \"66ac1234567890abcdef1234\",\n      \"name\": \"MarketTech\",\n      \"phoneNumber\": \"+14155238886\",\n      \"twilioPhoneNumber\": \"+14155238886\",\n      \"settings\": {\n        \"aiEnabled\": true,\n        \"autoResponse\": true,\n        \"welcomeMessage\": \"¡Hola! Somos MarketTech. Gracias por contactarnos. ¿En qué podemos ayudarte hoy?\",\n        \"businessHours\": {\n          \"enabled\": false,\n          \"start\": \"09:00\",\n          \"end\": \"18:00\",\n          \"timezone\": \"America/Bogota\"\n        }\n      },\n      \"subscription\": {\n        \"plan\": \"basic\",\n        \"status\": \"active\"\n      }\n    },\n    \"stats\": {\n      \"conversations\": {\n        \"total\": 5,\n        \"unread\": 2,\n        \"read\": 3\n      },\n      \"messages\": {\n        \"total\": 23,\n        \"sent\": 11,\n        \"received\": 12,\n        \"aiGenerated\": 8\n      },\n      \"activeConversations\": 3,\n      \"todayConversations\": 2,\n      \"timestamp\": \"2025-08-01T22:00:00.000Z\"\n    },\n    \"recentConversations\": [\n      {\n        \"_id\": \"66ac5678901234567890abcd\",\n        \"phoneNumber\": \"whatsapp:+573001234567\",\n        \"contactName\": null,\n        \"lastMessageAt\": \"2025-08-01T21:30:00.000Z\",\n        \"unreadCount\": 2,\n        \"lastMessage\": {\n          \"text\": \"Hola, necesito información sobre sus servicios\",\n          \"type\": \"received\",\n          \"timestamp\": \"2025-08-01T21:30:00.000Z\"\n        },\n        \"aiSettings\": {\n          \"enabled\": null,\n          \"autoResponse\": null\n        }\n      }\n    ],\n    \"systemStatus\": {\n      \"aiEnabled\": true,\n      \"autoResponse\": true,\n      \"businessHours\": {\n        \"enabled\": false,\n        \"start\": \"09:00\",\n        \"end\": \"18:00\",\n        \"timezone\": \"America/Bogota\"\n      },\n      \"lastSync\": \"2025-08-01T22:00:00.000Z\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Estadísticas Rápidas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/dashboard/quick-stats?period=24h",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "dashboard", "quick-stats"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "24h",
+                  "description": "Período: 1h, 24h, 7d, 30d"
+                }
+              ]
+            },
+            "description": "Obtener estadísticas rápidas para widgets del dashboard"
+          }
+        },
+        {
+          "name": "Estadísticas de MarketTech",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "stats"]
+            },
+            "description": "Obtener estadísticas detalladas del cliente MarketTech"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Control de IA y Auto-Respuesta",
+      "description": "Endpoints para controlar la IA a nivel de cliente y conversación",
+      "item": [
+        {
+          "name": "Activar/Desactivar IA de MarketTech",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/toggle-ai",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "toggle-ai"]
+            },
+            "description": "Activar o desactivar IA para todo el cliente MarketTech"
+          }
+        },
+        {
+          "name": "Activar/Desactivar Auto-Respuesta de MarketTech",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/toggle-auto-response",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "toggle-auto-response"]
+            },
+            "description": "Activar o desactivar respuesta automática para MarketTech"
+          }
+        },
+        {
+          "name": "Control IA por Conversación Específica",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/conversations/{{phone_number}}/toggle-ai",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "conversations", "{{phone_number}}", "toggle-ai"]
+            },
+            "description": "Activar/desactivar IA para una conversación específica (override de la configuración del cliente)"
+          }
+        },
+        {
+          "name": "Acciones en Lote desde Dashboard",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"toggle-ai\",\n  \"conversations\": [\n    \"whatsapp:+573001234567\",\n    \"whatsapp:+573009876543\"\n  ],\n  \"settings\": {\n    \"enabled\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/clients/{{client_id}}/dashboard/bulk-actions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "clients", "{{client_id}}", "dashboard", "bulk-actions"]
+            },
+            "description": "Ejecutar acciones en lote: mark-all-read, toggle-ai, toggle-auto-response"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Administración General",
+      "description": "Endpoints de administración para gestionar todo el sistema",
+      "item": [
+        {
+          "name": "Vista General del Sistema",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{admin_key}}",
+                "description": "Clave de administrador"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/overview",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "overview"]
+            },
+            "description": "Obtener vista general de todos los clientes y estadísticas del sistema"
+          },
+          "response": [
+            {
+              "name": "Overview del Sistema",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-admin-key",
+                    "value": "admin123"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/admin/overview",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "admin", "overview"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"systemStats\": {\n      \"totalClients\": 1,\n      \"activeClients\": 1,\n      \"clientsWithAI\": 1,\n      \"conversations\": {\n        \"total\": 5,\n        \"unread\": 2,\n        \"read\": 3\n      },\n      \"messages\": {\n        \"total\": 23,\n        \"sent\": 11,\n        \"received\": 12,\n        \"aiGenerated\": 8\n      }\n    },\n    \"clients\": [\n      {\n        \"_id\": \"66ac1234567890abcdef1234\",\n        \"name\": \"MarketTech\",\n        \"phoneNumber\": \"+14155238886\",\n        \"twilioPhoneNumber\": \"+14155238886\",\n        \"settings\": {\n          \"aiEnabled\": true,\n          \"autoResponse\": true\n        },\n        \"subscription\": {\n          \"plan\": \"basic\",\n          \"status\": \"active\"\n        },\n        \"isActive\": true,\n        \"stats\": {\n          \"conversations\": {\n            \"total\": 5,\n            \"unread\": 2,\n            \"read\": 3\n          }\n        }\n      }\n    ],\n    \"lastUpdated\": \"2025-08-01T22:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Activar/Desactivar IA para Todos los Clientes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-key",
+                "value": "{{admin_key}}",
+                "description": "Clave de administrador"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/system/toggle-ai",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "system", "toggle-ai"]
+            },
+            "description": "Activar o desactivar IA para todos los clientes del sistema de una vez"
+          }
+        },
+        {
+          "name": "Estado de Salud del Sistema",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{admin_key}}",
+                "description": "Clave de administrador"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "health"]
+            },
+            "description": "Verificar estado de salud completo del sistema (BD, servicios, etc.)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Envío de Mensajes",
+      "description": "Endpoints para enviar mensajes manuales y con IA",
+      "item": [
+        {
+          "name": "Enviar Mensaje Manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{phone_number}}\",\n  \"message\": \"¡Hola! Este es un mensaje manual desde MarketTech. ¿En qué podemos ayudarte?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-message",
+              "host": ["{{base_url}}"],
+              "path": ["api", "send-message"]
+            },
+            "description": "Enviar un mensaje manual a través de WhatsApp"
+          }
+        },
+        {
+          "name": "Enviar Mensaje con IA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{phone_number}}\",\n  \"prompt\": \"El cliente pregunta sobre precios de marketing digital. Responde de manera profesional y amigable, mencionando que ofrecemos consultas gratuitas.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/send-ai-message",
+              "host": ["{{base_url}}"],
+              "path": ["api", "send-ai-message"]
+            },
+            "description": "Enviar un mensaje generado por IA basado en un prompt"
+          }
+        },
+        {
+          "name": "Consultar IA Directamente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"¿Cuáles son los mejores servicios de marketing digital para una startup?\",\n  \"context\": \"Cliente interesado en marketing digital para startup tecnológica\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ask-ai",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ask-ai"]
+            },
+            "description": "Consultar la IA directamente sin enviar mensaje (para pruebas)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Webhook y Estados",
+      "description": "Endpoints relacionados con webhooks y estados del sistema",
+      "item": [
+        {
+          "name": "Estado de Auto-Respuesta (Legacy)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auto-response/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auto-response", "status"]
+            },
+            "description": "Ver estado del modo automático global (mantenido por compatibilidad)"
+          }
+        },
+        {
+          "name": "Toggle Auto-Respuesta Global (Legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auto-response/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auto-response", "toggle"]
+            },
+            "description": "Activar/desactivar modo automático global (legacy - usar control por cliente)"
+          }
+        },
+        {
+          "name": "Simular Webhook (Prueba)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "From",
+                  "value": "{{phone_number}}",
+                  "description": "Número que envía el mensaje"
+                },
+                {
+                  "key": "To",
+                  "value": "whatsapp:+14155238886",
+                  "description": "Número de MarketTech"
+                },
+                {
+                  "key": "Body",
+                  "value": "Hola, necesito información sobre sus servicios de marketing digital",
+                  "description": "Mensaje del cliente"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["webhook"]
+            },
+            "description": "Simular un webhook de Twilio para probar el sistema (solo para testing)"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Script que se ejecuta antes de cada request",
+          "console.log('Ejecutando request a:', pm.request.url);",
+          "",
+          "// Si no tenemos client_id, intentar obtenerlo",
+          "if (!pm.collectionVariables.get('client_id')) {",
+          "    console.log('Client ID no encontrado, será necesario ejecutar \"Obtener MarketTech\" primero');",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Script que se ejecuta después de cada response",
+          "pm.test('Status code es exitoso', function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+          "});",
+          "",
+          "pm.test('Response tiene formato JSON válido', function () {",
+          "    pm.response.to.have.jsonBody();",
+          "});",
+          "",
+          "pm.test('Response tiene campo success', function () {",
+          "    const jsonData = pm.response.json();",
+          "    pm.expect(jsonData).to.have.property('success');",
+          "});"
+        ]
+      }
+    }
+  ]
+}
