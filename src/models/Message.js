@@ -1,5 +1,6 @@
 // src/models/Message.js
 const database = require('../config/database');
+const { ObjectId } = require('mongodb');
 
 class Message {
   static async create(messageData) {
@@ -7,6 +8,7 @@ class Message {
     
     const message = {
       phoneNumber: messageData.phoneNumber,
+      clientId: typeof messageData.clientId === 'string' ? new ObjectId(messageData.clientId) : messageData.clientId,
       text: messageData.text,
       type: messageData.type, // 'sent', 'received', 'ai-auto', 'ai-assisted'
       twilioSid: messageData.twilioSid || null,
@@ -23,20 +25,26 @@ class Message {
     return { ...message, _id: result.insertedId };
   }
 
-  static async getByPhone(phoneNumber, limit = 100, offset = 0) {
+  static async getByPhoneAndClient(phoneNumber, clientId, limit = 100, offset = 0) {
     const messages = database.getMessagesCollection();
     return await messages
-      .find({ phoneNumber })
+      .find({ 
+        phoneNumber,
+        clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+      })
       .sort({ timestamp: -1 })
       .limit(limit)
       .skip(offset)
       .toArray();
   }
 
-  static async getConversationHistory(phoneNumber, limit = 100) {
+  static async getConversationHistory(phoneNumber, clientId, limit = 100) {
     const messages = database.getMessagesCollection();
     return await messages
-      .find({ phoneNumber })
+      .find({ 
+        phoneNumber,
+        clientId: typeof clientId === 'string' ? new ObjectId(clientId) : clientId
+      })
       .sort({ timestamp: 1 }) // Orden cronológico para la conversación
       .limit(limit)
       .toArray();

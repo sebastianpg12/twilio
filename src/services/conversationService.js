@@ -1,19 +1,31 @@
 // src/services/conversationService.js
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const Client = require('../models/Client');
 
 class ConversationService {
   /**
    * Procesa un mensaje entrante y actualiza la conversación
    */
-  static async processIncomingMessage(phoneNumber, messageText, mediaUrl = null) {
+  static async processIncomingMessage(twilioPhoneNumber, phoneNumber, messageText, mediaUrl = null) {
     try {
+      // Encontrar cliente por número de Twilio
+      let client = await Client.findByTwilioNumber(twilioPhoneNumber);
+      
+      // Si no existe cliente, crear MarketTech por defecto
+      if (!client) {
+        console.log(`⚠️ No se encontró cliente para el número de Twilio: ${twilioPhoneNumber}`);
+        console.log('🏢 Creando cliente MarketTech por defecto...');
+        client = await Client.createDefaultMarketTech();
+      }
+      
       // Encontrar o crear conversación
-      const conversation = await Conversation.findOrCreate(phoneNumber);
+      const conversation = await Conversation.findOrCreate(phoneNumber, client._id);
       
       // Crear mensaje
       const messageData = {
         phoneNumber,
+        clientId: client._id,
         text: messageText,
         type: 'received',
         mediaUrl
@@ -22,13 +34,13 @@ class ConversationService {
       const message = await Message.create(messageData);
       
       // Actualizar conversación con último mensaje
-      await Conversation.updateLastMessage(phoneNumber, {
+      await Conversation.updateLastMessage(phoneNumber, client._id, {
         text: messageText,
         type: 'received',
         timestamp: new Date()
       });
       
-      return { conversation, message };
+      return { conversation, message, client };
     } catch (error) {
       console.error('Error procesando mensaje entrante:', error);
       throw error;
@@ -38,14 +50,15 @@ class ConversationService {
   /**
    * Envía un mensaje y lo guarda en la BD
    */
-  static async sendMessage(phoneNumber, messageText, type = 'sent', metadata = {}) {
+  static async sendMessage(phoneNumber, clientId, messageText, type = 'sent', metadata = {}) {
     try {
       // Encontrar o crear conversación
-      const conversation = await Conversation.findOrCreate(phoneNumber);
+      const conversation = await Conversation.findOrCreate(phoneNumber, clientId);
       
       // Crear mensaje
       const messageData = {
         phoneNumber,
+        clientId,
         text: messageText,
         type,
         twilioSid: metadata.twilioSid,
@@ -56,7 +69,7 @@ class ConversationService {
       const message = await Message.create(messageData);
       
       // Actualizar conversación con último mensaje
-      await Conversation.updateLastMessage(phoneNumber, {
+      await Conversation.updateLastMessage(phoneNumber, clientId, {
         text: messageText,
         type,
         timestamp: new Date()
@@ -70,22 +83,22 @@ class ConversationService {
   }
 
   /**
-   * Obtiene todas las conversaciones ordenadas por fecha
+   * Obtiene todas las conversaciones de un cliente ordenadas por fecha
    */
-  static async getAllConversations(limit = 50, offset = 0) {
-    return await Conversation.getAll(limit, offset);
+  static async getAllConversationsByClient(clientId, limit = 50, offset = 0) {
+    return await Conversation.getAllByClient(clientId, limit, offset);
   }
 
   /**
    * Obtiene el historial completo de una conversación
    */
-  static async getConversationHistory(phoneNumber) {
-    const conversation = await Conversation.findByPhone(phoneNumber);
+  static async getConversationHistory(phoneNumber, clientId) {
+    const conversation = await Conversation.findByPhoneAndClient(phoneNumber, clientId);
     if (!conversation) {
       throw new Error('Conversación no encontrada');
     }
 
-    const messages = await Message.getConversationHistory(phoneNumber);
+    const messages = await Message.getConversationHistory(phoneNumber, clientId);
     
     return {
       conversation,
@@ -96,16 +109,16 @@ class ConversationService {
   /**
    * Marca una conversación como leída
    */
-  static async markAsRead(phoneNumber) {
-    return await Conversation.markAsRead(phoneNumber);
+  static async markAsRead(phoneNumber, clientId) {
+    return await Conversation.markAsRead(phoneNumber, clientId);
   }
 
   /**
-   * Obtiene estadísticas generales
+   * Obtiene estadísticas de un cliente específico
    */
-  static async getStats() {
-    const conversationStats = await Conversation.getStats();
-    const messageStats = await Message.getStats();
+  static async getStatsByClient(clientId) {
+    const conversationStats = await Conversation.getStatsByClient(clientId);
+    const messageStats = await Message.getStatsByClient(clientId);
     
     return {
       conversations: conversationStats,
@@ -115,25 +128,58 @@ class ConversationService {
   }
 
   /**
-   * Busca conversaciones por número de teléfono o nombre
+   * Busca conversaciones por número de teléfono o nombre dentro de un cliente
    */
-  static async searchConversations(query) {
-    // Implementar búsqueda en conversaciones
-    // Por ahora búsqueda simple por texto en mensajes
-    const messages = await Message.searchMessages(query);
+  static async searchConversationsByClient(clientId, query) {
+    // Implementar búsqueda en conversaciones por cliente
+    const messages = await Message.searchMessagesByClient(clientId, query);
     
     // Agrupar por número de teléfono
     const phoneNumbers = [...new Set(messages.map(m => m.phoneNumber))];
     
     const conversations = [];
     for (const phone of phoneNumbers) {
-      const conversation = await Conversation.findByPhone(phone);
+      const conversation = await Conversation.findByPhoneAndClient(phone, clientId);
       if (conversation) {
         conversations.push(conversation);
       }
     }
     
     return conversations;
+  }
+
+  /**
+   * Control de IA por conversación
+   */
+  static async toggleConversationAI(phoneNumber, clientId, enabled) {
+    return await Conversation.toggleAI(phoneNumber, clientId, enabled);
+  }
+
+  static async toggleConversationAutoResponse(phoneNumber, clientId, enabled) {
+    return await Conversation.toggleAutoResponse(phoneNumber, clientId, enabled);
+  }
+
+  /**
+   * Verificar si la IA está habilitada para una conversación específica
+   */
+  static async isAIEnabled(conversation, client) {
+    // Si la conversación tiene configuración específica, usarla
+    if (conversation.aiSettings.enabled !== null) {
+      return conversation.aiSettings.enabled;
+    }
+    
+    // Si no, usar la configuración del cliente
+    return client.settings.aiEnabled;
+  }
+
+  static async isAutoResponseEnabled(conversation, client) {
+    // Si la conversación tiene configuración específica, usarla
+    if (conversation.aiSettings.autoResponse !== null) {
+      return conversation.aiSettings.autoResponse;
+    }
+    
+    // Si no, usar la configuración del cliente
+    return client.settings.autoResponse;
   }
 }
 

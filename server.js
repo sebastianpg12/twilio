@@ -26,10 +26,15 @@ const cors = require('cors');
 const database = require('./src/config/database');
 const ConversationService = require('./src/services/conversationService');
 const { preguntarIA, respuestaInteligente } = require('./src/services/aiService');
+const Client = require('./src/models/Client');
 
 // Importar rutas
 const conversationsRoutes = require('./src/routes/conversations');
 const statsRoutes = require('./src/routes/stats');
+const clientsRoutes = require('./src/routes/clients');
+const dashboardRoutes = require('./src/routes/dashboard');
+const setupRoutes = require('./src/routes/setup');
+const adminRoutes = require('./src/routes/admin');
 
 const app = express();
 
@@ -122,40 +127,47 @@ app.post('/webhook', async (req, res) => {
   const from = req.body.From;
   const msg = req.body.Body;
   const mediaUrl = req.body.MediaUrl0;
+  const to = req.body.To; // Número de Twilio que recibió el mensaje
 
   console.log("📞 De:", from);
+  console.log("� A:", to);
   console.log("💬 Mensaje:", msg || '[VACÍO]');
-  console.log("🤖 Modo automático:", autoResponseEnabled);
 
   try {
-    // SIEMPRE guardar el mensaje entrante en la BD
+    // SIEMPRE guardar el mensaje entrante en la BD con sistema multi-cliente
     if (msg && msg.trim()) {
-      const phoneNumber = from;
-      await ConversationService.processIncomingMessage(phoneNumber, msg, mediaUrl);
-      console.log("💾 Mensaje guardado en BD");
-    }
+      const result = await ConversationService.processIncomingMessage(to, from, msg, mediaUrl);
+      const { client, conversation } = result;
+      console.log(`💾 Mensaje guardado para cliente: ${client.name} (${client._id})`);
 
-    // RESPUESTA AUTOMÁTICA CON IA (si está activada)
-    if (autoResponseEnabled && msg && msg.trim()) {
-      console.log("🤖 Generando respuesta automática...");
+      // RESPUESTA AUTOMÁTICA CON IA (verificar configuraciones del cliente y conversación)
+      const aiEnabled = await ConversationService.isAIEnabled(conversation, client);
+      const autoResponseEnabled = await ConversationService.isAutoResponseEnabled(conversation, client);
       
-      const respuestaIA = await respuestaInteligente(msg);
-      console.log("💡 Respuesta generada:", respuestaIA);
+      console.log(`🤖 IA habilitada: ${aiEnabled}, Auto-respuesta: ${autoResponseEnabled}`);
 
-      // Enviar respuesta
-      const response = await client.messages.create({
-        from: twilioPhoneNumber,
-        body: respuestaIA,
-        to: from
-      });
+      if (aiEnabled && autoResponseEnabled && msg.trim()) {
+        console.log("🤖 Generando respuesta automática...");
+        
+        const respuestaIA = await respuestaInteligente(msg);
+        console.log("💡 Respuesta generada:", respuestaIA);
 
-      // Guardar respuesta automática en BD
-      await ConversationService.sendMessage(from, respuestaIA, 'ai-auto', {
-        twilioSid: response.sid,
-        isAiGenerated: true
-      });
+        // Enviar respuesta usando las credenciales del cliente
+        const twilioClient = require('twilio')(client.twilioSid, client.twilioAuthToken);
+        const response = await twilioClient.messages.create({
+          from: client.twilioPhoneNumber,
+          body: respuestaIA,
+          to: from
+        });
 
-      console.log("✅ Respuesta automática enviada y guardada. SID:", response.sid);
+        // Guardar respuesta automática en BD
+        await ConversationService.sendMessage(from, client._id, respuestaIA, 'ai-auto', {
+          twilioSid: response.sid,
+          isAiGenerated: true
+        });
+
+        console.log("✅ Respuesta automática enviada y guardada. SID:", response.sid);
+      }
     }
     
   } catch (error) {
@@ -168,10 +180,22 @@ app.post('/webhook', async (req, res) => {
 
 // ========== RUTAS API ==========
 
-// Rutas de conversaciones
+// Rutas de administración general
+app.use('/api/admin', adminRoutes);
+
+// Rutas de setup y administración
+app.use('/api/setup', setupRoutes);
+
+// Rutas de clientes (multi-cliente)
+app.use('/api/clients', clientsRoutes);
+
+// Rutas de dashboard por cliente
+app.use('/api/clients', dashboardRoutes);
+
+// Rutas de conversaciones (mantener compatibilidad)
 app.use('/api/conversations', conversationsRoutes);
 
-// Rutas de estadísticas  
+// Rutas de estadísticas (mantener compatibilidad)
 app.use('/api/stats', statsRoutes);
 
 // ========== CONTROL DE MODO AUTOMÁTICO ==========
@@ -421,24 +445,35 @@ async function startServer() {
     // Conectar a MongoDB
     await database.connect();
     
+    // Inicializar cliente MarketTech por defecto
+    console.log('🏢 Inicializando sistema multi-cliente...');
+    await Client.createDefaultMarketTech();
+    
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log("🚀 Servidor WhatsApp Business Backend corriendo en puerto", PORT);
       console.log("🌍 Entorno:", process.env.NODE_ENV || 'development');
-      console.log(`🤖 Modo automático: ${autoResponseEnabled ? "ACTIVADO" : "DESACTIVADO"}`);
       console.log("💾 Base de datos: MongoDB conectada");
-      console.log("\n=== RUTAS API DISPONIBLES ===");
-      console.log("POST /webhook - Webhook de Twilio");
-      console.log("GET  /api/conversations - Listar conversaciones");
-      console.log("GET  /api/conversations/:phone - Historial de conversación");
-      console.log("POST /api/conversations/:phone/read - Marcar como leída");
-      console.log("GET  /api/stats - Estadísticas");
+      console.log("🏢 Sistema multi-cliente inicializado");
+      console.log("\n=== RUTAS API MULTI-CLIENTE ===");
+      console.log("POST /webhook - Webhook de Twilio (multi-cliente)");
+      console.log("GET  /api/clients - Listar clientes");
+      console.log("GET  /api/clients/:id - Obtener cliente específico");
+      console.log("POST /api/clients - Crear nuevo cliente");
+      console.log("GET  /api/clients/:id/conversations - Conversaciones del cliente");
+      console.log("GET  /api/clients/:id/dashboard - Dashboard del cliente");
+      console.log("GET  /api/clients/:id/stats - Estadísticas del cliente");
+      console.log("POST /api/clients/:id/toggle-ai - Activar/desactivar IA del cliente");
+      console.log("POST /api/clients/:id/toggle-auto-response - Control auto-respuesta");
+      console.log("POST /api/clients/:id/conversations/:phone/toggle-ai - IA por conversación");
+      console.log("\n=== RUTAS API GENERALES ===");
+      console.log("GET  /api/conversations - Listar conversaciones (legacy)");
+      console.log("GET  /api/stats - Estadísticas generales (legacy)");
       console.log("POST /api/send-message - Enviar mensaje manual");
       console.log("POST /api/send-ai-message - Enviar con IA");
-      console.log("GET  /api/auto-response/status - Estado automático");
-      console.log("POST /api/auto-response/toggle - Cambiar modo automático");
       console.log("GET  /api/health - Estado del servidor");
       console.log("POST /api/ask-ai - Consultar IA directamente");
+      console.log("\n✅ Servidor multi-cliente listo");
     });
     
   } catch (error) {

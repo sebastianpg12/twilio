@@ -48,6 +48,10 @@ class Database {
   getMessagesCollection() {
     return this.getDb().collection('messages');
   }
+
+  getClientsCollection() {
+    return this.getDb().collection('clients');
+  }
 }
 
 module.exports = new Database();
