@@ -243,6 +243,9 @@ app.use('/api/clients', clientsRoutes);
 // Rutas de dashboard por cliente
 app.use('/api/clients', dashboardRoutes);
 
+// Rutas de conversaciones
+app.use('/api/conversations', conversationsRoutes);
+
 // ====== CONTROL SOLO POR CONVERSACIÓN DE IA ======
 const iaConversationStatus = {}
 
