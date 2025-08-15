@@ -292,18 +292,24 @@ app.post('/api/send-message', async (req, res) => {
       marketTechClient = await Client.createDefaultMarketTech();
     }
 
-    console.log(`🔄 Enviando via Twilio desde ${whatsappSandboxNumber} hacia ${formattedTo}`);
+    console.log(`🔄 Enviando via Twilio WhatsApp desde ${whatsappSandboxNumber} hacia ${formattedTo}`);
+    console.log(`📝 Contenido: "${message}"`);
 
-    // Enviar mensaje vía Twilio
+    // IMPORTANTE: Verificar que el número destino esté en formato WhatsApp correcto
+    if (!formattedTo.startsWith('whatsapp:')) {
+      throw new Error('Número destino debe usar formato whatsapp:+número');
+    }
+
+    // Enviar mensaje vía Twilio WhatsApp API
     const messageResponse = await twilioClient.messages.create({
-      from: whatsappSandboxNumber,
-      to: formattedTo,
-      body: message
+      from: whatsappSandboxNumber,  // whatsapp:+14155238886 (sandbox)
+      to: formattedTo,             // whatsapp:+573012508805
+      body: message,
+      // Opcional: agregar metadata para tracking
+      statusCallback: process.env.TWILIO_WEBHOOK_URL || undefined
     });
 
     console.log(`✅ Mensaje enviado via Twilio: SID=${messageResponse.sid}, Status=${messageResponse.status}`);
-
-    console.log(`✅ Mensaje enviado via Twilio: ${messageResponse.sid}`);
 
     // Guardar mensaje en la base de datos usando ConversationService
     try {
