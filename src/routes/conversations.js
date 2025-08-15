@@ -11,11 +11,21 @@ router.get('/', async (req, res) => {
       parseInt(limit), 
       parseInt(offset)
     );
-    
+    // Agregar iaEnabled a cada conversación
+    const enhancedConversations = conversations.map(conv => {
+      const clientId = conv.clientId || (conv.client?._id);
+      const phone = conv.phoneNumber || conv.phone;
+      let iaEnabled = true;
+      if (clientId && phone) {
+        const key = `${clientId}:${phone}`;
+        iaEnabled = typeof iaConversationStatus !== 'undefined' && typeof iaConversationStatus[key] !== 'undefined' ? iaConversationStatus[key] : true;
+      }
+      return { ...conv, iaEnabled };
+    });
     res.json({
       success: true,
-      conversations,
-      count: conversations.length
+      conversations: enhancedConversations,
+      count: enhancedConversations.length
     });
   } catch (error) {
     console.error('Error obteniendo conversaciones:', error);
