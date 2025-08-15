@@ -494,6 +494,36 @@ app.post('/api/auto-response/toggle', (req, res) => {
   });
 });
 
+// Envío manual de SMS (sin verificación WhatsApp)  
+app.post('/api/send-sms', async (req, res) => {
+  try {
+    const { to, message } = req.body;
+    if (!to || !message) {
+      return res.status(400).json({ success: false, error: 'Campos requeridos: to, message' });
+    }
+
+    const formattedTo = to.startsWith('+') ? to : `+${to.replace(/\D/g, '')}`;
+    const twilioSmsNumber = '+15017122661'; // Número SMS de Twilio
+    
+    const messageResponse = await twilioClient.messages.create({
+      from: twilioSmsNumber,
+      to: formattedTo,
+      body: message
+    });
+
+    res.json({
+      success: true,
+      message: 'SMS enviado exitosamente',
+      twilioSid: messageResponse.sid,
+      type: 'SMS',
+      from: twilioSmsNumber,
+      to: formattedTo
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== INICIO DEL SERVIDOR ==========
 
 const PORT = process.env.PORT || 3000;
