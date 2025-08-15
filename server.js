@@ -199,11 +199,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Envío manual de mensajes
+// Envío manual de mensajes - MEJORADO para guardar en BD
 app.post('/api/send-message', async (req, res) => {
   try {
     const { to, message } = req.body;
 
+    // Validación de datos
     if (!to || !message) {
       return res.status(400).json({
         success: false,
@@ -211,19 +212,153 @@ app.post('/api/send-message', async (req, res) => {
       });
     }
 
+    // Normalizar número de teléfono
+    const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+    
+    console.log(`📤 Enviando mensaje manual a ${formattedTo}: "${message}"`);
+
+    // Buscar cliente MarketTech por su número de Twilio
+    let marketTechClient = await Client.findByTwilioNumber('+14155238886');
+    
+    if (!marketTechClient) {
+      console.log('🏢 Cliente MarketTech no encontrado, creando...');
+      marketTechClient = await Client.createDefaultMarketTech();
+    }
+
+    // Enviar mensaje vía Twilio
     const messageResponse = await twilioClient.messages.create({
       from: twilioPhoneNumber,
-      to: to,
+      to: formattedTo,
       body: message
     });
+
+    console.log(`✅ Mensaje enviado via Twilio: ${messageResponse.sid}`);
+
+    // Guardar mensaje en la base de datos usando ConversationService
+    try {
+      const savedResult = await ConversationService.sendMessage(
+        formattedTo,
+        marketTechClient._id,
+        message,
+        'manual', // Tipo de mensaje: manual
+        {
+          twilioSid: messageResponse.sid,
+          source: 'admin_panel',
+          timestamp: new Date()
+        }
+      );
+      
+      console.log(`💾 Mensaje manual guardado en BD: ${savedResult.message._id} para cliente ${marketTechClient.name}`);
+      
+      // Respuesta exitosa con datos completos
+      res.json({
+        success: true,
+        message: 'Mensaje enviado y guardado exitosamente',
+        data: {
+          twilioSid: messageResponse.sid,
+          clientId: marketTechClient._id,
+          clientName: marketTechClient.name,
+          savedToDatabase: true,
+          messageId: savedResult.message._id,
+          conversationId: savedResult.conversation._id
+        }
+      });
+      
+    } catch (dbError) {
+      console.error('❌ Error guardando mensaje en BD:', dbError);
+      // El mensaje se envió pero no se guardó - responder con advertencia
+      res.json({
+        success: true,
+        message: 'Mensaje enviado exitosamente (advertencia: no se guardó en BD)',
+        twilioSid: messageResponse.sid,
+        warning: 'No se pudo guardar en la base de datos: ' + dbError.message,
+        savedToDatabase: false
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ Error enviando mensaje:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error enviando mensaje: ' + error.message
+    });
+  }
+});
+
+// Envío de mensajes con cliente específico (endpoint mejorado)
+app.post('/api/messages/send', async (req, res) => {
+  try {
+    const { to, message, clientId, twilioNumber = '+14155238886' } = req.body;
+
+    // Validación de datos
+    if (!to || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'Los campos "to" y "message" son requeridos'
+      });
+    }
+
+    // Buscar cliente
+    let client;
+    if (clientId) {
+      client = await Client.findById(clientId);
+    } else {
+      client = await Client.findByTwilioNumber(twilioNumber);
+    }
+    
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cliente no encontrado para el número de Twilio especificado'
+      });
+    }
+
+    // Normalizar número de teléfono
+    const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+    const formattedFrom = client.twilioPhoneNumber.startsWith('whatsapp:') 
+      ? client.twilioPhoneNumber 
+      : `whatsapp:${client.twilioPhoneNumber}`;
+    
+    console.log(`📤 Enviando mensaje desde ${client.name} (${formattedFrom}) a ${formattedTo}`);
+
+    // Enviar mensaje vía Twilio
+    const messageResponse = await twilioClient.messages.create({
+      from: formattedFrom,
+      to: formattedTo,
+      body: message
+    });
+
+    console.log(`✅ Mensaje enviado via Twilio: ${messageResponse.sid}`);
+
+    // Guardar mensaje en la base de datos
+    const savedResult = await ConversationService.sendMessage(
+      formattedTo,
+      client._id,
+      message,
+      'manual',
+      {
+        twilioSid: messageResponse.sid,
+        source: 'api_manual',
+        timestamp: new Date()
+      }
+    );
+
+    console.log(`💾 Mensaje guardado en BD para cliente ${client.name}: ${savedResult.message._id}`);
 
     res.json({
       success: true,
       message: 'Mensaje enviado exitosamente',
-      twilioSid: messageResponse.sid
+      data: {
+        twilioSid: messageResponse.sid,
+        clientId: client._id,
+        clientName: client.name,
+        messageId: savedResult.message._id,
+        conversationId: savedResult.conversation._id,
+        savedToDatabase: true
+      }
     });
   } catch (error) {
-    console.error('Error enviando mensaje:', error);
+    console.error('❌ Error enviando mensaje:', error);
     res.status(500).json({
       success: false,
       error: 'Error enviando mensaje: ' + error.message

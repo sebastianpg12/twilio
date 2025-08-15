@@ -62,8 +62,10 @@ class ConversationService {
         text: messageText,
         type,
         twilioSid: metadata.twilioSid,
-        isAiGenerated: metadata.isAiGenerated || false,
-        aiPrompt: metadata.aiPrompt
+        isAiGenerated: metadata.isAiGenerated || type.startsWith('ai'),
+        aiPrompt: metadata.aiPrompt,
+        source: metadata.source || 'system',
+        metadata: metadata.metadata || {}
       };
       
       const message = await Message.create(messageData);
@@ -72,7 +74,7 @@ class ConversationService {
       await Conversation.updateLastMessage(phoneNumber, clientId, {
         text: messageText,
         type,
-        timestamp: new Date()
+        timestamp: metadata.timestamp || new Date()
       });
       
       return { conversation, message };
@@ -290,15 +292,18 @@ class ConversationService {
   /**
    * Guardar mensaje saliente (respuesta del sistema)
    */
-  static async saveOutgoingMessage(phoneNumber, clientId, messageText, type = 'sent') {
+  static async saveOutgoingMessage(phoneNumber, clientId, messageText, type = 'sent', metadata = {}) {
     try {
       // Crear mensaje saliente
       const messageData = {
         phoneNumber,
         clientId,
         text: messageText,
-        type, // 'sent', 'ai-auto', 'ai-assisted'
-        isAiGenerated: type.startsWith('ai')
+        type, // 'sent', 'manual', 'ai-auto', 'ai-assisted'
+        twilioSid: metadata.twilioSid,
+        isAiGenerated: metadata.isAiGenerated || type.startsWith('ai'),
+        source: metadata.source || 'system',
+        metadata: metadata.metadata || {}
       };
       
       const message = await Message.create(messageData);
@@ -307,7 +312,7 @@ class ConversationService {
       await Conversation.updateLastMessage(phoneNumber, clientId, {
         text: messageText,
         type,
-        timestamp: new Date()
+        timestamp: metadata.timestamp || new Date()
       });
       
       return message;
