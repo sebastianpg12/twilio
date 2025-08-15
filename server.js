@@ -181,15 +181,9 @@ app.post('/webhook', async (req, res) => {
 
     const { conversation, message, client: marketTechClient } = result;
 
-    // CONTROL DE IA: Solo responde la IA si está activa
-    let iaEnabled = iaGlobalEnabled;
-    if (marketTechClient && iaClientStatus[marketTechClient._id]) {
-      iaEnabled = iaClientStatus[marketTechClient._id];
-    }
+    // CONTROL DE IA: Solo responde la IA si está activa por conversación
     const convKey = marketTechClient ? `${marketTechClient._id}:${fromNumber}` : null;
-    if (convKey && iaConversationStatus[convKey] !== undefined) {
-      iaEnabled = iaConversationStatus[convKey];
-    }
+    const iaEnabled = convKey && iaConversationStatus[convKey] !== undefined ? iaConversationStatus[convKey] : true;
 
     if (iaEnabled) {
       console.log('🤖 Generando respuesta IA...');
@@ -249,23 +243,10 @@ app.use('/api/clients', clientsRoutes);
 // Rutas de dashboard por cliente
 app.use('/api/clients', dashboardRoutes);
 
-// ====== CONTROL GLOBAL Y POR CLIENTE/CONVERSACIÓN DE IA ======
-let iaGlobalEnabled = true;
-const iaClientStatus = {};
-const iaConversationStatus = {};
+// ====== CONTROL SOLO POR CONVERSACIÓN DE IA ======
+const iaConversationStatus = {}
 
-app.get('/api/ia/status', (req, res) => {
-  res.json({ success: true, iaEnabled: iaGlobalEnabled });
-});
-app.post('/api/ia/toggle', (req, res) => {
-  iaGlobalEnabled = req.body.enabled !== undefined ? req.body.enabled : !iaGlobalEnabled;
-  res.json({ success: true, iaEnabled: iaGlobalEnabled });
-});
-app.post('/api/ia/:clientId/toggle', (req, res) => {
-  const { clientId } = req.params;
-  iaClientStatus[clientId] = req.body.enabled !== undefined ? req.body.enabled : !iaClientStatus[clientId];
-  res.json({ success: true, clientId, iaEnabled: iaClientStatus[clientId] });
-});
+// Solo endpoint para activar/desactivar IA por conversación
 app.post('/api/ia/:clientId/:phone/toggle', (req, res) => {
   const { clientId, phone } = req.params;
   const key = `${clientId}:${phone}`;
