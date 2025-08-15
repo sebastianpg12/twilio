@@ -43,7 +43,19 @@ router.get('/:phone', async (req, res) => {
     const phoneNumber = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
     const clientId = req.query.clientId || null;
     // Obtener historial y datos de la conversación
-    const data = await ConversationService.getConversationHistory(phoneNumber, clientId);
+    let data;
+    try {
+      data = await ConversationService.getConversationHistory(phoneNumber, clientId);
+    } catch (err) {
+      // Si no existe la conversación, devolver respuesta vacía y success true
+      return res.json({
+        success: true,
+        messages: [],
+        conversation: null,
+        iaEnabled: false,
+        info: 'No se encontró conversación para ese número y cliente.'
+      });
+    }
     // Consultar estado de IA
     let iaEnabled = true;
     if (clientId) {
