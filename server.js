@@ -78,6 +78,70 @@ const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER || 'whatsapp:+14155238
 
 console.log('📞 Número de WhatsApp configurado:', twilioPhoneNumber);
 
+// ===============================================
+// ENDPOINT PARA VERIFICAR ESTADO DE MENSAJES TWILIO
+// ===============================================
+
+// Verificar estado de un mensaje específico
+app.get('/api/message-status/:twilioSid', async (req, res) => {
+  try {
+    const { twilioSid } = req.params;
+    
+    const message = await twilioClient.messages(twilioSid).fetch();
+    
+    res.json({
+      success: true,
+      message: {
+        sid: message.sid,
+        status: message.status,
+        direction: message.direction,
+        from: message.from,
+        to: message.to,
+        body: message.body,
+        errorCode: message.errorCode,
+        errorMessage: message.errorMessage,
+        dateCreated: message.dateCreated,
+        dateUpdated: message.dateUpdated,
+        dateSent: message.dateSent
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo estado del mensaje:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para verificar números autorizados en WhatsApp Sandbox
+app.get('/api/whatsapp/sandbox-info', async (req, res) => {
+  try {
+    // Para el sandbox de Twilio, todos los números deben estar pre-autorizados
+    // enviando primero el código "join <sandbox-keyword>" al número sandbox
+    
+    res.json({
+      success: true,
+      sandbox: {
+        number: '+14155238886',
+        format: 'whatsapp:+14155238886',
+        instructions: [
+          '1. Envía "join <keyword>" al número +1 415 523 8886 desde WhatsApp',
+          '2. El keyword específico se obtiene del dashboard de Twilio',
+          '3. Una vez autorizado, podrás recibir mensajes del sandbox',
+          '4. Los números no autorizados NO recibirán mensajes'
+        ],
+        note: 'Este es un número sandbox de Twilio. Para producción necesitas un número verificado.'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Variables globales
 let autoResponseEnabled = true;
 
@@ -217,6 +281,9 @@ app.post('/api/send-message', async (req, res) => {
     
     console.log(`📤 Enviando mensaje manual a ${formattedTo}: "${message}"`);
 
+    // IMPORTANTE: Para WhatsApp Sandbox, usar el número sandbox correcto
+    const whatsappSandboxNumber = 'whatsapp:+14155238886'; // Número sandbox de Twilio
+    
     // Buscar cliente MarketTech por su número de Twilio
     let marketTechClient = await Client.findByTwilioNumber('+14155238886');
     
@@ -225,12 +292,16 @@ app.post('/api/send-message', async (req, res) => {
       marketTechClient = await Client.createDefaultMarketTech();
     }
 
+    console.log(`🔄 Enviando via Twilio desde ${whatsappSandboxNumber} hacia ${formattedTo}`);
+
     // Enviar mensaje vía Twilio
     const messageResponse = await twilioClient.messages.create({
-      from: twilioPhoneNumber,
+      from: whatsappSandboxNumber,
       to: formattedTo,
       body: message
     });
+
+    console.log(`✅ Mensaje enviado via Twilio: SID=${messageResponse.sid}, Status=${messageResponse.status}`);
 
     console.log(`✅ Mensaje enviado via Twilio: ${messageResponse.sid}`);
 
