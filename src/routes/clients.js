@@ -38,9 +38,24 @@ router.get('/:clientId', async (req, res) => {
       });
     }
     
+    // Filtrar datos sensibles
+    const safeClient = {
+      _id: client._id,
+      name: client.name,
+      business: client.business,
+      phoneNumber: client.phoneNumber,
+      email: client.email,
+      twilioPhoneNumber: client.twilioPhoneNumber,
+      settings: client.settings,
+      subscription: client.subscription,
+      createdAt: client.createdAt,
+      updatedAt: client.updatedAt,
+      isActive: client.isActive
+    };
+    
     res.json({
       success: true,
-      data: client
+      data: safeClient
     });
   } catch (error) {
     console.error('Error obteniendo cliente:', error);

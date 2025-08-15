@@ -4,20 +4,69 @@ Este documento explica el único endpoint recomendado para controlar el funciona
 
 ---
 
-## Endpoint principal
+# API IA por Conversación
 
-### Estado de IA por conversación (único recomendado)
+## 1. Listar todas las conversaciones (incluye estado de IA)
+**GET** `/api/conversations`
 
-- **Activar/desactivar IA para una conversación específica:**
-  - `POST /api/ia/:clientId/:phone/toggle`
-  - Body:
-    ```json
-    { "enabled": true } // o false
-    ```
-  - Respuesta:
-    ```json
-    { "success": true, "clientId": "...", "phone": "...", "iaEnabled": true }
-    ```
+Respuesta:
+```json
+{
+  "success": true,
+  "conversations": [
+    {
+      "phoneNumber": "whatsapp:+573012508805",
+      "clientId": "markettech",
+      // ...otros datos...
+      "iaEnabled": true // o false
+    }
+    // ...
+  ],
+  "count": 1
+}
+```
+
+## 2. Consultar historial de una conversación (incluye estado de IA)
+**GET** `/api/conversations/:phone`
+
+Respuesta:
+```json
+{
+  "success": true,
+  "messages": [ /* ... */ ],
+  "conversation": { /* ... */ },
+  "iaEnabled": true // o false
+}
+```
+
+## 3. Consultar estado de IA individual por chat
+**GET** `/api/ia/:clientId/:phone/status`
+
+Respuesta:
+```json
+{
+  "success": true,
+  "clientId": "markettech",
+  "phone": "whatsapp:+573012508805",
+  "iaEnabled": true // o false
+}
+```
+
+## 4. Activar/desactivar IA por chat
+**POST** `/api/ia/:clientId/:phone/toggle`
+Body:
+```json
+{ "enabled": true } // o false
+```
+Respuesta:
+```json
+{
+  "success": true,
+  "clientId": "markettech",
+  "phone": "whatsapp:+573012508805",
+  "iaEnabled": true // o false
+}
+```
 
 ---
 
