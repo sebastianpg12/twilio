@@ -181,19 +181,24 @@ app.post('/webhook', async (req, res) => {
 
     const { conversation, message, client: marketTechClient } = result;
 
-    // Verificar si debe responder automáticamente
-    const shouldAutoRespond = await ConversationService.isAutoResponseEnabled(conversation, marketTechClient);
-    
-    if (shouldAutoRespond && autoResponseEnabled) {
-      console.log('🤖 Generando respuesta automática...');
-      
+    // CONTROL DE IA: Solo responde la IA si está activa
+    let iaEnabled = iaGlobalEnabled;
+    if (marketTechClient && iaClientStatus[marketTechClient._id]) {
+      iaEnabled = iaClientStatus[marketTechClient._id];
+    }
+    const convKey = marketTechClient ? `${marketTechClient._id}:${fromNumber}` : null;
+    if (convKey && iaConversationStatus[convKey] !== undefined) {
+      iaEnabled = iaConversationStatus[convKey];
+    }
+
+    if (iaEnabled) {
+      console.log('🤖 Generando respuesta IA...');
       try {
         const aiResponse = await respuestaInteligente(
           incomingMessage, 
           fromNumber,
           marketTechClient
         );
-
         if (aiResponse && aiResponse.trim()) {
           // Enviar respuesta usando cliente de Twilio
           const messageResponse = await twilioClient.messages.create({
@@ -201,7 +206,6 @@ app.post('/webhook', async (req, res) => {
             to: fromNumber,
             body: aiResponse
           });
-          
           // Guardar respuesta en BD
           await ConversationService.saveOutgoingMessage(
             fromNumber,
@@ -209,12 +213,13 @@ app.post('/webhook', async (req, res) => {
             aiResponse,
             'ai-auto'
           );
-
-          console.log(`✅ Respuesta automática enviada a ${fromNumber}`);
+          console.log(`✅ Respuesta IA enviada a ${fromNumber}`);
         }
       } catch (aiError) {
         console.error('❌ Error generando respuesta IA:', aiError);
       }
+    } else {
+      console.log('🔕 IA desactivada: solo responde el asesor humano.');
     }
 
     res.status(200).send('OK');
@@ -244,8 +249,29 @@ app.use('/api/clients', clientsRoutes);
 // Rutas de dashboard por cliente
 app.use('/api/clients', dashboardRoutes);
 
-// Rutas de conversaciones (mantener compatibilidad)
-app.use('/api/conversations', conversationsRoutes);
+// ====== CONTROL GLOBAL Y POR CLIENTE/CONVERSACIÓN DE IA ======
+let iaGlobalEnabled = true;
+const iaClientStatus = {};
+const iaConversationStatus = {};
+
+app.get('/api/ia/status', (req, res) => {
+  res.json({ success: true, iaEnabled: iaGlobalEnabled });
+});
+app.post('/api/ia/toggle', (req, res) => {
+  iaGlobalEnabled = req.body.enabled !== undefined ? req.body.enabled : !iaGlobalEnabled;
+  res.json({ success: true, iaEnabled: iaGlobalEnabled });
+});
+app.post('/api/ia/:clientId/toggle', (req, res) => {
+  const { clientId } = req.params;
+  iaClientStatus[clientId] = req.body.enabled !== undefined ? req.body.enabled : !iaClientStatus[clientId];
+  res.json({ success: true, clientId, iaEnabled: iaClientStatus[clientId] });
+});
+app.post('/api/ia/:clientId/:phone/toggle', (req, res) => {
+  const { clientId, phone } = req.params;
+  const key = `${clientId}:${phone}`;
+  iaConversationStatus[key] = req.body.enabled !== undefined ? req.body.enabled : !iaConversationStatus[key];
+  res.json({ success: true, clientId, phone, iaEnabled: iaConversationStatus[key] });
+});
 
 // Rutas de estadísticas (mantener compatibilidad)
 app.use('/api/stats', statsRoutes);
@@ -470,28 +496,6 @@ app.post('/api/ask-ai', async (req, res) => {
       error: 'Error consultando IA: ' + error.message
     });
   }
-});
-
-// Control global de auto-respuesta (legacy)
-app.get('/api/auto-response/status', (req, res) => {
-  res.json({
-    success: true,
-    enabled: autoResponseEnabled,
-    message: autoResponseEnabled ? 'Auto-respuesta activada' : 'Auto-respuesta desactivada'
-  });
-});
-
-app.post('/api/auto-response/toggle', (req, res) => {
-  const { enabled } = req.body;
-  autoResponseEnabled = enabled !== undefined ? enabled : !autoResponseEnabled;
-  
-  console.log(`🔄 Auto-respuesta ${autoResponseEnabled ? 'activada' : 'desactivada'} globalmente`);
-  
-  res.json({
-    success: true,
-    enabled: autoResponseEnabled,
-    message: `Auto-respuesta ${autoResponseEnabled ? 'activada' : 'desactivada'} exitosamente`
-  });
 });
 
 // Envío manual de SMS (sin verificación WhatsApp)  
