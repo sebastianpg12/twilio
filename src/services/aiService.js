@@ -2,6 +2,10 @@
 require('dotenv').config();
 const OpenAI = require('openai');
 const KnowledgeBase = require('../models/KnowledgeBase');
+const Message = require('../models/Message');
+
+// Instanciar KnowledgeBase
+const knowledgeBase = new KnowledgeBase();
 
 // Configurar cliente de OpenAI
 const openai = new OpenAI({
@@ -93,7 +97,7 @@ async function respuestaInteligente(mensaje, numeroTelefono = '', client = null)
     if (client && client._id) {
       try {
         // Buscar información relevante en la base de conocimiento
-        const relevantKnowledge = await KnowledgeBase.searchKnowledge(
+        const relevantKnowledge = await knowledgeBase.searchKnowledge(
           client._id.toString(), 
           mensaje, 
           3 // Obtener máximo 3 resultados relevantes
@@ -149,8 +153,32 @@ async function respuestaInteligente(mensaje, numeroTelefono = '', client = null)
       contextoBase += "El usuario está preguntando sobre la ubicación. ";
     }
 
-    // Construir el contexto completo
-    const contextoCompleto = contextoBase + knowledgeContext;
+    // 🆕 AGREGAR HISTORIAL DEL CHAT PARA CONTEXTO
+    let historialContext = "";
+    if (client && client._id && numeroTelefono) {
+      try {
+        const phoneNumber = numeroTelefono.startsWith('whatsapp:') ? numeroTelefono : `whatsapp:${numeroTelefono}`;
+        const recentHistory = await Message.getConversationHistory(phoneNumber, client._id, 8);
+        
+        if (recentHistory && recentHistory.length > 0) {
+          historialContext = "\n\nHISTORIAL RECIENTE:\n";
+          recentHistory.slice(-8).forEach((msg, index) => {
+            const sender = msg.type === 'received' ? 'Usuario' : 'Asistente';
+            const tiempo = new Date(msg.timestamp).toLocaleTimeString('es-CO', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+            historialContext += `[${tiempo}] ${sender}: ${msg.text}\n`;
+          });
+          historialContext += `[Ahora] Usuario: ${mensaje}\n\nCONTEXTO: Mantén continuidad con la conversación anterior y responde de manera natural y contextualizada.\n`;
+        }
+      } catch (historyError) {
+        console.error('❌ Error obteniendo historial del chat:', historyError);
+      }
+    }
+
+    // Construir el contexto completo con historial
+    const contextoCompleto = contextoBase + knowledgeContext + historialContext;
 
     const respuesta = await preguntarIA(mensaje, contextoCompleto);
     
