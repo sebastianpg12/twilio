@@ -257,6 +257,14 @@ app.post('/api/ia/:clientId/:phone/toggle', (req, res) => {
   res.json({ success: true, clientId, phone, iaEnabled: iaConversationStatus[key] });
 });
 
+// Endpoint para consultar si la IA está activa en una conversación
+app.get('/api/ia/:clientId/:phone/status', (req, res) => {
+  const { clientId, phone } = req.params;
+  const key = `${clientId}:${phone}`;
+  const iaEnabled = iaConversationStatus[key] !== undefined ? iaConversationStatus[key] : true;
+  res.json({ success: true, clientId, phone, iaEnabled });
+});
+
 // Rutas de estadísticas (mantener compatibilidad)
 app.use('/api/stats', statsRoutes);
 
