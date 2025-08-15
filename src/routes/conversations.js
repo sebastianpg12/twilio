@@ -36,20 +36,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/conversations/:phone - Obtener historial de una conversación (ahora acepta clientId por query)
+// GET /api/conversations/:phone - Obtener historial de una conversación (ahora soporta clientId por query)
 router.get('/:phone', async (req, res) => {
   try {
     const { phone } = req.params;
-    const { clientId } = req.query;
     const phoneNumber = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
+    const clientId = req.query.clientId || null;
     // Obtener historial y datos de la conversación
     const data = await ConversationService.getConversationHistory(phoneNumber, clientId);
-    // Obtener clientId de la conversación
-    const resolvedClientId = clientId || data.conversation?.clientId || (data.conversation?.client?._id);
     // Consultar estado de IA
     let iaEnabled = true;
-    if (resolvedClientId) {
-      const key = `${resolvedClientId}:${phoneNumber}`;
+    if (clientId) {
+      const key = `${clientId}:${phoneNumber}`;
       iaEnabled = typeof iaConversationStatus[key] !== 'undefined' ? iaConversationStatus[key] : true;
     }
     res.json({
